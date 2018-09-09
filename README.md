@@ -1,6 +1,6 @@
 # foundationdb4s
 
-foundationdb4s is a wrapper for [FoundationDb](https://github.com/apple/foundationdb) Java client.
+foundationdb4s is a wrapper for [FoundationDB](https://github.com/apple/foundationdb) Java client.
 It aims to be type-safe and idiomatic for Scala:
 
 ```scala
@@ -60,7 +60,7 @@ To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and 
 val source: Source[Entity] = SupspaceSource.from(subspace, transactor)
 ```
 ### Example - class scheduling
-Module `example` contains implementation of [Class Scheduling from FoundationDB website]((https://apple.github.io/foundationdb/class-scheduling-java.html)).
+Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
 
 ### Contributing
 Contributors and help is always welcome!
