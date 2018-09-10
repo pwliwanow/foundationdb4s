@@ -60,7 +60,7 @@ you can use `SubspaceSource`.
 
 To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and `transactor: Transactor`: 
 ```scala
-val source: Source[Entity, _] = SupspaceSource.from(subspace, transactor)
+val source: Source[Entity, _] = SubspaceSource.from(subspace, transactor)
 ```
 ### Example - class scheduling
 Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
