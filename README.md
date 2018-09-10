@@ -8,6 +8,7 @@ implicit val ec = scala.concurrent.ExecutionContext.global
 val transactor = Transactor(version = 520)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
+
 val userSubspace = new TypedSubspace[Book, String] {
   override val subspace: Subspace = new Subspace(Tuple.from("books"))
   override def toKey(entity: Book): String = entity.isbn
@@ -22,10 +23,12 @@ val userSubspace = new TypedSubspace[Book, String] {
     Book(isbn = key, title = tupledValue.getString(0), publishedOn = publishedOn)
   }
 }
+
 val dbio: DBIO[Option[Book]] = for {
   _ <- userSubspace.set(Book("978-0451205766", "The Godfather", LocalDate.parse("2002-03-01")))
   maybeBook <- userSubspace.get("978-0451205766")
 } yield maybeBook
+
 val maybeBook: Future[Option[Book]] = dbio.transact(transactor)
 ```
 
@@ -57,7 +60,7 @@ you can use `SubspaceSource`.
 
 To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and `transactor: Transactor`: 
 ```scala
-val source: Source[Entity] = SupspaceSource.from(subspace, transactor)
+val source: Source[Entity, _] = SupspaceSource.from(subspace, transactor)
 ```
 ### Example - class scheduling
 Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
