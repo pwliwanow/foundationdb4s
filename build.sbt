@@ -33,7 +33,7 @@ lazy val example = project
   )
 
 lazy val commonSettings = smlBuildSettings ++ Seq(
-  organization := "com.github.pwliwanow",
+  organization := "com.github.pwliwanow.foundationdb4s",
   scalaVersion := "2.12.6",
   scalafmtOnCompile := true,
   releaseProcess := Seq(
