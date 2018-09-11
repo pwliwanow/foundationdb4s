@@ -33,7 +33,7 @@ lazy val example = project
     libraryDependencies ++= allExampleDependencies
   )
 
-lazy val commonSettings = smlBuildSettings ++ Seq(
+lazy val commonSettings = buildSettings ++ Seq(
   organization := "com.github.pwliwanow.foundationdb4s",
   scalaVersion := "2.12.6",
   scalafmtOnCompile := true,
@@ -82,7 +82,44 @@ lazy val commonSettings = smlBuildSettings ++ Seq(
   )
 )
 
-lazy val smlBuildSettings =
+lazy val buildSettings =
   commonSmlBuildSettings ++
     acyclicSettings ++
     ossPublishSettings
+
+lazy val ossPublishSettings = Seq(
+  publishTo := Some(
+    if (isSnapshot.value)
+      Opts.resolver.sonatypeSnapshots
+    else
+      Opts.resolver.sonatypeStaging
+  ),
+  publishArtifact in Test := false,
+  publishMavenStyle := true,
+  sonatypeProfileName := "com.github.pwliwanow.foundationdb4s",
+  pomIncludeRepository := { _ => false },
+  credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
+  organizationHomepage := Some(url("https://github.com/pwliwanow/foundationdb4s")),
+  homepage := Some(url("https://github.com/pwliwanow/foundationdb4s")),
+  licenses := Seq("Apache 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  scmInfo := Some(
+    ScmInfo(
+      url("https://github.com/pwliwanow/foundationdb4s"),
+      "scm:git:https://github.com/pwliwanow/foundationdb4s.git"
+    )
+  ),
+  autoAPIMappings := true,
+  developers := List(
+    Developer(
+      id = "pwliwanow",
+      name = "Pawel Iwanow",
+      email = "pwliwanow@gmail.com",
+      url = new URL("https://github.com/pwliwanow/")
+    )
+  ),
+  // sbt-release
+  releaseCrossBuild := true,
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
+  releaseIgnoreUntrackedFiles := true,
+  releaseProcess := Release.steps(organization.value),
+)
