@@ -4,6 +4,7 @@ import sbtrelease.ReleasePlugin.autoImport._
 
 lazy val root = (project in file("."))
   .settings(commonSettings: _*)
+  .settings(skip in publish := true)
   .aggregate(akkaStreams, core)
 
 lazy val core = project
