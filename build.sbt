@@ -75,6 +75,9 @@ lazy val commonSettings = smlBuildSettings ++ Seq(
     "-Ywarn-unused:params",
     "-Ywarn-unused:patvars",
     "-Ywarn-unused:privates"
+  ),
+  scalacOptions in (Compile, doc) ++= Seq(
+    "-no-link-warnings"
   )
 )
 
