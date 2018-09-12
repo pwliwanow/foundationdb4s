@@ -46,6 +46,7 @@ lazy val commonSettings = buildSettings ++ Seq(
     releaseStepCommandAndRemaining("+clean"),
     releaseStepCommandAndRemaining("+test"),
     setReleaseVersion,
+    releaseStepTask(updateVersionInReadme),
     commitReleaseVersion,
     tagRelease,
     releaseStepCommandAndRemaining("+publishSigned"),
@@ -97,7 +98,9 @@ lazy val ossPublishSettings = Seq(
   publishArtifact in Test := false,
   publishMavenStyle := true,
   sonatypeProfileName := "com.github.pwliwanow.foundationdb4s",
-  pomIncludeRepository := { _ => false },
+  pomIncludeRepository := { _ =>
+    false
+  },
   credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
   organizationHomepage := Some(url("https://github.com/pwliwanow/foundationdb4s")),
   homepage := Some(url("https://github.com/pwliwanow/foundationdb4s")),
@@ -121,5 +124,23 @@ lazy val ossPublishSettings = Seq(
   releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseIgnoreUntrackedFiles := true,
-  releaseProcess := Release.steps(organization.value),
+  releaseProcess := Release.steps(organization.value)
 )
+
+lazy val updateVersionInReadme =
+  taskKey[Unit]("Updates version in README.md to the one present in version.sbt")
+
+updateVersionInReadme := {
+  import java.io.PrintWriter
+  import scala.io.Source
+  val pattern = """val fdb4sVersion = "([^\"]*)""""
+  val updatedReadme = Source
+    .fromFile("README.md")
+    .getLines()
+    .map { line =>
+      if (line.matches(pattern)) s"""val fdb4sVersion = "${version.value}""""
+      else line
+    }
+    .mkString("\n")
+  new PrintWriter("README.md") { write(updatedReadme); close() }
+}

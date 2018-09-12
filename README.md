@@ -1,7 +1,9 @@
 # foundationdb4s
 
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12)
+
 foundationdb4s is a wrapper for [FoundationDB](https://github.com/apple/foundationdb) Java client.
-It aims to be type-safe and idiomatic for Scala:
+It aims to be type-safe and idiomatic for Scala.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
@@ -41,7 +43,22 @@ If you:
 
 please create an issue.
 
-### Basic abstractions
+## Quickstart with sbt
+To get started you can add the following dependencies to your project:
+```scala
+val fdb4sVersion = "0.1.2"
+
+libraryDependencies ++= Seq(
+  "com.github.pwliwanow.foundationdb4s" %% "foundationdb4s-core" % fdb4sVersion,
+  "com.github.pwliwanow.foundationdb4s" %% "foundationdb4s-akka-streams" % fdb4sVersion
+)
+```
+
+## Integrations
+- Cats - Monad instances are provided in companion objects for `DBIO` and `ReadDBIO`
+- Akka Streams `Source` implementation (`akka-streams` module)
+
+## Basic abstractions
 Reading from a `TypedSubspace` (`get` and `getRange` operations) returns `ReadDBIO[_]` monad.
 
 Modifying data within a `TypedSubspace` (`clear` and `set` operations) returns `DBIO[_]` monad.
@@ -49,11 +66,7 @@ Modifying data within a `TypedSubspace` (`clear` and `set` operations) returns `
 Having `read: ReadDBIO[Unit]` and `set: DBIO[Unit]`, 
 both `read.flatMap(_ => set)` and `set.flatMap(_ => read)` will result in `DBIO[Unit]`.
 
-### Integrations
-- Cats - Monad instances are provided in companion objects for `DBIO` and `ReadDBIO`
-- Akka Streams `Source` implementation (`akka-streams` module)
-
-### Akka streams
+## Akka streams
 If you want to stream data from a subspace, it can take longer than FoundationDb transaction time limit,
 and your data is immutable and append only, or if approximation is good enough for your use case, 
 you can use `SubspaceSource`. 
@@ -62,16 +75,16 @@ To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and 
 ```scala
 val source: Source[Entity, _] = SubspaceSource.from(subspace, transactor)
 ```
-### Example - class scheduling
+## Example - class scheduling
 Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
 
-### Contributing
+## Contributing
 Contributors and help is always welcome!
 
 Please make sure that issue exists for the functionality that you want to create (or bug that you want to fix),
 and in the commit message please include issue number and issue title (e.g. "#1 Incorrect ...").
 
-### Testing
+## Testing
 To run tests you'll need a local FoundationDB instance running (here are installation instructions for [Linux](https://apple.github.io/foundationdb/getting-started-linux.html) and [macOS](https://apple.github.io/foundationdb/getting-started-mac.html)).
 
-Then simply execute `sbt test`. 
+Then simply execute `sbt test`.
