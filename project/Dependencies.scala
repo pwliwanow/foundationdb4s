@@ -7,7 +7,7 @@ object Dependencies {
   lazy val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
   lazy val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 
-  val catsVersion = "1.3.0"
+  val catsVersion = "1.3.1"
   lazy val cats = "org.typelevel" %% "cats-core" % catsVersion
   lazy val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
@@ -17,15 +17,12 @@ object Dependencies {
   val java8CompatVersion = "0.9.0"
   lazy val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
-  val pureConfigVersion = "0.9.1"
-  lazy val pureConfig = "com.github.pureconfig" %% "pureconfig" % pureConfigVersion
-
   val scalaMockVersion = "4.1.0"
   lazy val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion
 
   lazy val akkaStreamsDependencies: Seq[ModuleID] = Seq(akkaStreams)
   lazy val coreDependencies: Seq[ModuleID] = Seq(cats, foundationDb, java8Compat)
-  lazy val exampleDependencies: Seq[ModuleID] = Seq(pureConfig)
+  lazy val exampleDependencies: Seq[ModuleID] = Seq.empty
 
   val scalaTestVersion = "3.0.5"
   lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
