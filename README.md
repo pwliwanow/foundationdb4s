@@ -1,6 +1,7 @@
 # foundationdb4s
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12)
+[![Build Status](https://travis-ci.org/pwliwanow/foundationdb4s.svg?branch=master)](https://travis-ci.org/pwliwanow/foundationdb4s)
 
 foundationdb4s is a wrapper for [FoundationDB](https://github.com/apple/foundationdb) Java client.
 It aims to be type-safe and idiomatic for Scala.
