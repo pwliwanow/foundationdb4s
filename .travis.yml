@@ -1,0 +1,7 @@
+language: scala
+scala:
+  - 2.12.6
+jdk: oraclejdk8
+sudo: false
+script:
+  - sbt ++$TRAVIS_SCALA_VERSION scalafmt::test test:scalafmt::test sbt:scalafmt::test test
