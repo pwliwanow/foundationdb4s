@@ -12,7 +12,7 @@ val transactor = Transactor(version = 520)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
 
-val userSubspace = new TypedSubspace[Book, String] {
+val booksSubspace = new TypedSubspace[Book, String] {
   override val subspace: Subspace = new Subspace(Tuple.from("books"))
   override def toKey(entity: Book): String = entity.isbn
   override def toRawValue(entity: Book): Array[Byte] = {
@@ -28,8 +28,8 @@ val userSubspace = new TypedSubspace[Book, String] {
 }
 
 val dbio: DBIO[Option[Book]] = for {
-  _ <- userSubspace.set(Book("978-0451205766", "The Godfather", LocalDate.parse("2002-03-01")))
-  maybeBook <- userSubspace.get("978-0451205766")
+  _ <- booksSubspace.set(Book("978-0451205766", "The Godfather", LocalDate.parse("2002-03-01")))
+  maybeBook <- booksSubspace.get("978-0451205766")
 } yield maybeBook
 
 val maybeBook: Future[Option[Book]] = dbio.transact(transactor)
