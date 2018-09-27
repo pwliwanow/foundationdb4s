@@ -3,37 +3,34 @@ import scala.collection.immutable.Seq
 
 object Dependencies {
 
-  val akkaVersion = "2.5.16"
-  lazy val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
-  lazy val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
+  private val akkaVersion = "2.5.16"
+  private lazy val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
+  private lazy val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 
-  val catsVersion = "1.3.1"
-  lazy val cats = "org.typelevel" %% "cats-core" % catsVersion
-  lazy val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
+  private val catsVersion = "1.4.0"
+  private lazy val cats = "org.typelevel" %% "cats-core" % catsVersion
+  private lazy val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
-  val foundationDbVersion = "5.2.5"
-  lazy val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion
+  private val foundationDbVersion = "5.2.5"
+  private lazy val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion
 
-  val java8CompatVersion = "0.9.0"
-  lazy val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
+  private val java8CompatVersion = "0.9.0"
+  private lazy val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
-  val scalaMockVersion = "4.1.0"
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion
+  private val scalaMockVersion = "4.1.0"
+  private lazy val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion
 
-  lazy val akkaStreamsDependencies: Seq[ModuleID] = Seq(akkaStreams)
-  lazy val coreDependencies: Seq[ModuleID] = Seq(cats, foundationDb, java8Compat)
-  lazy val exampleDependencies: Seq[ModuleID] = Seq.empty
+  private lazy val akkaStreamsDependencies: Seq[ModuleID] = Seq(akkaStreams)
+  private lazy val coreDependencies: Seq[ModuleID] = Seq(cats, foundationDb, java8Compat)
 
-  val scalaTestVersion = "3.0.5"
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
+  private val scalaTestVersion = "3.0.5"
+  private lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
-  lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
+  private lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
     Seq(akkaStreamsTestKit, scalaMock).map(_ % Test)
-  lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaTest).map(_ % Test)
-  lazy val exampleTestDependencies: Seq[ModuleID] = Seq.empty[ModuleID]
+  private lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaTest).map(_ % Test)
 
   lazy val allAkkaStreamsDependencies
     : Seq[ModuleID] = akkaStreamsDependencies ++ akkaStreamsTestDependencies
   lazy val allCoreDependencies: Seq[ModuleID] = coreDependencies ++ coreTestDependencies
-  lazy val allExampleDependencies: Seq[ModuleID] = coreDependencies ++ coreTestDependencies
 }

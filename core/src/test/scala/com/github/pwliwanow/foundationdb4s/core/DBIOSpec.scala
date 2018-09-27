@@ -1,8 +1,11 @@
 package com.github.pwliwanow.foundationdb4s.core
+
 import cats.laws.MonadLaws
-import com.apple.foundationdb.tuple.Tuple
+import com.apple.foundationdb.MutationType
+import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
 
 import scala.concurrent.Future
+import scala.compat.java8.FutureConverters._
 import scala.util.Try
 
 class DBIOSpec extends FoundationDbSpec {
@@ -86,8 +89,18 @@ class DBIOSpec extends FoundationDbSpec {
     } yield ()
     await(dbio.transact(testTransactor))
     val valueFromDb: Array[Byte] = testTransactor.db.runAsync(tx => tx.get(key)).get()
-
     assert(Tuple.fromBytes(valueFromDb).getString(0) === "value")
+  }
+
+  it should "properly compose multiple operations" in {
+    val key = subspace.pack(Tuple.from("testKey"))
+    val value = Tuple.from("value").pack
+    val dbioValue = for {
+      _ <- DBIO { case (tx, _)     => Future.fromTry(Try(tx.set(key, value))) }
+      bytes <- DBIO { case (tx, _) => tx.get(key).toScala }
+    } yield Tuple.fromBytes(bytes).getString(0)
+    val valueFromTx = await(dbioValue.transact(testTransactor))
+    assert(valueFromTx === "value")
   }
 
   it should "rollback transaction if dbio is a failure" in {
@@ -104,6 +117,25 @@ class DBIOSpec extends FoundationDbSpec {
 
     assert(tryResult.isFailure)
     assert(value === null)
+  }
+
+  forAll(Table("userVersion", 0, 10)) { userVersion: Int =>
+    it should s"get correct versionstamp for userVersion = $userVersion" in {
+      val packedTuple =
+        subspace.packWithVersionstamp(Tuple.from("testKey", Versionstamp.incomplete(userVersion)))
+      val modifyDbio = DBIO { (tx, _) =>
+        Future.fromTry {
+          Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedTuple, Array.emptyByteArray))
+        }
+      }
+      val (_, versionstamp) = await(modifyDbio.transactVersionstamped(testTransactor, userVersion))
+      val expected = testTransactor.db.run { tx =>
+        val serialized = tx.getRange(subspace.range(Tuple.from("testKey")), 1).iterator.next.getKey
+        val tuple = subspace.unpack(serialized)
+        tuple.getVersionstamp(1)
+      }
+      assert(versionstamp === expected)
+    }
   }
 
 }

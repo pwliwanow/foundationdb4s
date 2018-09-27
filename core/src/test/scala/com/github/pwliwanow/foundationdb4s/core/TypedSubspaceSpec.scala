@@ -22,9 +22,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   override def afterEach(): Unit = {
     super.afterEach()
-    testTransactor.db.run { tx =>
-      allSubspaces.map(_.range()).foreach(tx.clear)
-    }
+    testTransactor.db.run(tx => allSubspaces.map(_.range()).foreach(tx.clear))
   }
 
   it should "properly calculate subspace key" in {
