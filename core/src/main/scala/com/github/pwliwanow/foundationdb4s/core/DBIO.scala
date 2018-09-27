@@ -4,6 +4,7 @@ import java.util.concurrent.CompletableFuture
 
 import cats.{Monad, StackSafeMonad}
 import com.apple.foundationdb.Transaction
+import com.apple.foundationdb.tuple.Versionstamp
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.compat.java8.FutureConverters._
@@ -21,11 +22,24 @@ final case class DBIO[+A](
   }
 
   def transact(transactor: Transactor): Future[A] = {
-    transactor.db
+    transactVersionstamped(transactor).map { case (x, _) => x }(transactor.ec)
+  }
+
+  def transactVersionstamped(
+      transactor: Transactor,
+      userVersion: Int = 0): Future[(A, Versionstamp)] = {
+    implicit val ec = transactor.ec
+    var futureVersionstamp: Future[Versionstamp] = null
+    val futureRes: Future[A] = transactor.db
       .runAsync(
-        tx => run(tx, transactor.ec).toJava.asInstanceOf[CompletableFuture[A]],
-        transactor.ec)
+        (tx: Transaction) => {
+          futureVersionstamp = tx.getVersionstamp.toScala.map(Versionstamp.complete(_, userVersion))
+          run(tx, transactor.ec).toJava.asInstanceOf[CompletableFuture[A]]
+        },
+        transactor.ec
+      )
       .toScala
+    futureRes.zip(futureVersionstamp)
   }
 }
 

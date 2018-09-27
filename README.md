@@ -18,9 +18,9 @@ val booksSubspace = new TypedSubspace[Book, String] {
   override def toRawValue(entity: Book): Array[Byte] = {
     Tuple.from(entity.title, entity.publishedOn.toString).pack
   }
-  override protected def toTupledKey(key: String): Tuple = Tuple.from(key)
-  override protected def toKey(tupledKey: Tuple): String = tupledKey.getString(0)
-  override protected def toEntity(key: String, value: Array[Byte]): Book = {
+  override def toTupledKey(key: String): Tuple = Tuple.from(key)
+  override def toKey(tupledKey: Tuple): String = tupledKey.getString(0)
+  override def toEntity(key: String, value: Array[Byte]): Book = {
     val tupledValue = Tuple.fromBytes(value)
     val publishedOn = LocalDate.parse(tupledValue.getString(1))
     Book(isbn = key, title = tupledValue.getString(0), publishedOn = publishedOn)
@@ -66,6 +66,70 @@ Modifying data within a `TypedSubspace` (`clear` and `set` operations) returns `
 
 Having `read: ReadDBIO[Unit]` and `set: DBIO[Unit]`, 
 both `read.flatMap(_ => set)` and `set.flatMap(_ => read)` will result in `DBIO[Unit]`.
+
+## Versionstamps 
+Versionstamp consists of "transaction" version and of a user version.
+
+Transaction version is usually assigned by the database in such a way that 
+all transactions receive a different version that is consistent with a serialization 
+order of the transactions within the database. 
+This also implies that the transaction version of newly committed transactions will 
+be monotonically increasing over time.
+Note that transaction version will be assigned during commit, 
+which implies that it is not possible to use/get "current" transaction version inside the transaction itself. 
+
+User version should be set by the client. 
+It allows the user to use this class to impose a total order of items across multiple 
+transactions in the database in a consistent and conflict-free way.
+
+More information in [FoundationDB java doc](https://apple.github.io/foundationdb/javadoc/com/apple/foundationdb/tuple/Versionstamp.html).
+
+### Working with Versionstamps
+
+foundationdb4s supports working with Keys that contain versionstamps by providing `VersionstampedSubspace`.
+Compared to `TypedSubspace`, it requires additinal method to be implemented: `extractVersionstamp: Key => Versiostamp`.
+
+To obtain versionstamp which was used by any versionstamp operations in this transaction, 
+use `transactVersionstamped` instead of `transact`.
+
+```scala
+implicit val ec = scala.concurrent.ExecutionContext.global
+val transactor = Transactor(version = 520)
+
+case class EventKey(eventType: String, versionstamp: Versionstamp)
+case class Event(key: EventKey, content: Array[Byte])
+
+val eventsSubspace = new VersionstampedSubspace[Event, EventKey] {
+  override val subspace: Subspace = new Subspace(Tuple.from("events"))
+  override def toKey(entity: Event): EventKey = entity.key
+  override def toRawValue(entity: Event): Array[Byte] = event.content
+  override def toTupledKey(key: EventKey): Tuple = Tuple.from(key.eventType, key.versiostamp)
+  override def toKey(tupledKey: Tuple): EventKey = {
+    EventKey(tupledKey.getString(0), tupledKey.getVersiostamp(1))
+  }
+  override def toEntity(key: EventKey, value: Array[Byte]): Event = Event(key, value)
+  override def extractVersionstamp(key: EventKey): Versionstamp = key.versionstamp
+}
+
+val event = Event(
+  key = EventKey("UserAdded", Versionstamp.incomplete(0)), 
+  content = Tuple.from("""{ "name": "John Smith" }""").pack)
+
+// save new event
+val setDbio: DBIO[Unit] = eventsSubspace.set(event)
+val completedVersionstamp: Versionstamp = 
+  Await.result(
+    setDbio
+      .transactVersionstamped(transactor, userVersion = 0)
+      .map { case (_, versionstamp) => versionstamp },
+    Duration.Inf)
+
+// update previously persisted event
+val updatedEvent = event.copy(key = event.key.copy(versionstamp = completedVersionstamp))
+val updateDbio = eventsSubspace.set(updatedEvent)
+
+updateDbio.transact(transactor)
+``` 
 
 ## Akka streams
 If you want to stream data from a subspace, it can take longer than FoundationDb transaction time limit,

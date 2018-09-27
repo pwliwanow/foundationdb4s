@@ -2,10 +2,10 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
-lazy val root = (project in file("."))
+lazy val fdb4s = (project in file("."))
   .settings(commonSettings: _*)
   .settings(skip in publish := true)
-  .aggregate(akkaStreams, core)
+  .aggregate(akkaStreams, core, example)
 
 lazy val core = project
   .in(file("core"))
@@ -30,7 +30,7 @@ lazy val example = project
   .settings(
     commonSettings,
     name := "foundationdb4s-example",
-    libraryDependencies ++= allExampleDependencies
+    skip in publish := true
   )
 
 lazy val commonSettings = buildSettings ++ Seq(
@@ -141,6 +141,6 @@ updateVersionInReadme := {
       if (line.matches(pattern)) s"""val fdb4sVersion = "${version.value}""""
       else line
     }
-    .mkString("\n")
+    .mkString("\n") + "\n"
   new PrintWriter("README.md") { write(updatedReadme); close() }
 }

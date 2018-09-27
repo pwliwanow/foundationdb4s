@@ -30,7 +30,7 @@ trait TypedSubspace[Entity, Key] {
   protected def toKey(tupledKey: Tuple): Key
   protected def toEntity(key: Key, value: Array[Byte]): Entity
 
-  final def toSubspaceKey(key: Key): Array[Byte] = {
+  def toSubspaceKey(key: Key): Array[Byte] = {
     subspace.pack(toTupledKey(key))
   }
 
@@ -115,7 +115,7 @@ trait TypedSubspace[Entity, Key] {
       toRangeResult(tx.getRange(from, to, limit, reverse))(ec)
   }
 
-  final def set(entity: Entity): DBIO[Unit] = DBIO {
+  def set(entity: Entity): DBIO[Unit] = DBIO {
     case (tx, _) =>
       val packedKey = toSubspaceKey(toKey(entity))
       val packedValue = toRawValue(entity)
