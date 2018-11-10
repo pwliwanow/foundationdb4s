@@ -1,14 +1,18 @@
 package com.github.pwliwanow.foundationdb4s.streams
 
 import akka.NotUsed
+import akka.stream.ActorAttributes.SupervisionStrategy
+import akka.stream.Supervision.Decider
 import akka.stream.scaladsl.Source
-import akka.stream.{Attributes, Outlet, SourceShape}
+import akka.stream.{Attributes, Outlet, SourceShape, Supervision}
 import akka.stream.stage.{AsyncCallback, GraphStage, GraphStageLogic, OutHandler}
-import com.apple.foundationdb.{FDBException, _}
-import com.apple.foundationdb.async.AsyncIterator
-import com.github.pwliwanow.foundationdb4s.core.{Transactor, TypedSubspace}
+import com.apple.foundationdb._
+import com.github.pwliwanow.foundationdb4s.core.{
+  RefreshingSubspaceStream,
+  Transactor,
+  TypedSubspace
+}
 
-import scala.compat.java8.FutureConverters._
 import scala.util.Try
 
 /** Factories to create sources from provided subspace.
@@ -20,7 +24,7 @@ import scala.util.Try
   * SubspaceSource will:
   * - complete when all elements were produced
   * - emit failure when [[KeyValue]] cannot be converted into entity
-  * - fail if it cannot connect to the database
+  * - fail stage if it cannot connect to the database
   */
 object SubspaceSource {
   private val MaxAllowedNumberOfRestartsWithoutProgress = 3
@@ -28,16 +32,16 @@ object SubspaceSource {
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
       transactor: Transactor): Source[Entity, NotUsed] = {
-    val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
-    from(subspace, transactor, begin)
+    val createStream = () => RefreshingSubspaceStream.fromTypedSubspace(subspace, transactor)
+    Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
       transactor: Transactor,
       begin: KeySelector): Source[Entity, NotUsed] = {
-    val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    from(subspace, transactor, begin, end)
+    val createStream = () => RefreshingSubspaceStream.fromTypedSubspace(subspace, transactor, begin)
+    Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 
   def from[Entity, KeyRepr](
@@ -47,20 +51,21 @@ object SubspaceSource {
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM): Source[Entity, NotUsed] = {
-    Source.fromGraph(
-      new SubspaceSource[Entity, KeyRepr](subspace, transactor, begin, end, reverse, streamingMode))
+    val createStream = () =>
+      RefreshingSubspaceStream.fromTypedSubspace(
+        subspace,
+        transactor,
+        begin,
+        end,
+        reverse,
+        streamingMode,
+        MaxAllowedNumberOfRestartsWithoutProgress)
+    Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 }
 
-final class SubspaceSource[Entity, KeyRepr](
-    subspace: TypedSubspace[Entity, KeyRepr],
-    transactor: Transactor,
-    begin: KeySelector,
-    end: KeySelector,
-    reverse: Boolean,
-    streamingMode: StreamingMode)
+private final class SubspaceSource[Entity](createStream: () => RefreshingSubspaceStream[Entity])
     extends GraphStage[SourceShape[Entity]] {
-  import SubspaceSource.MaxAllowedNumberOfRestartsWithoutProgress
 
   private val out: Outlet[Entity] = Outlet("SubspaceSource.out")
 
@@ -68,15 +73,17 @@ final class SubspaceSource[Entity, KeyRepr](
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) { stage =>
+      def decider: Decider =
+        inheritedAttributes
+          .get[SupervisionStrategy]
+          .map(_.decider)
+          .getOrElse(Supervision.stoppingDecider)
 
-      private var lastKey = Option.empty[Array[Byte]]
-      private var tx = Option.empty[Transaction]
-      private var asyncIterable: AsyncIterator[KeyValue] = _
-      private var numberOfRestartsWithoutProgress = 0
+      private var underlyingStream: RefreshingSubspaceStream[Entity] = _
 
-      override def preStart(): Unit = {
-        asyncIterable = resumedIterator()
-      }
+      override def preStart(): Unit = underlyingStream = createStream()
+
+      override def postStop(): Unit = underlyingStream.close()
 
       setHandler(out, new OutHandler {
         override def onPull(): Unit = stage.onPull()
@@ -84,83 +91,34 @@ final class SubspaceSource[Entity, KeyRepr](
 
       private def onPull(): Unit = {
         val pushCallback = createPushCallback()
-        val handleFdbExceptionCallback = createHandleFdbExceptionCallback()
         val failStageCallback = createFailStageCallback()
-        asyncIterable
+        underlyingStream
           .onHasNext()
-          .toScala
           .map(hasNext => pushCallback.invoke(hasNext))(materializer.executionContext)
-          .recover {
-            case e: FDBException =>
-              handleFdbExceptionCallback.invoke(e)
-            case t =>
-              failStageCallback.invoke(t)
-          }(materializer.executionContext)
+          .recover { case t => failStageCallback.invoke(t) }(materializer.executionContext)
         ()
       }
 
       private def createPushCallback(): AsyncCallback[Boolean] = getAsyncCallback[Boolean] {
         hasNext =>
           if (hasNext) {
-            val tryEntity = Try {
-              val kv = asyncIterable.next()
-              lastKey = Some(kv.getKey)
-              subspace.toEntity(kv)
-            }
-            tryEntity
-              .map { entity =>
-                push(out, entity)
-                numberOfRestartsWithoutProgress = 0
+            Try(underlyingStream.next())
+              .map(push(out, _))
+              .recover {
+                case t =>
+                  decider(t) match {
+                    case Supervision.Stop => failStage(t)
+                    case _                => onPull()
+                  }
               }
-              .recover { case t => fail(out, t) }
               .get
           } else {
-            asyncIterable.cancel()
-            closeTx()
             completeStage()
           }
       }
 
       private def createFailStageCallback(): AsyncCallback[Throwable] =
-        getAsyncCallback[Throwable] { t =>
-          failStage(t)
-        }
-
-      private def createHandleFdbExceptionCallback(): AsyncCallback[FDBException] = {
-        getAsyncCallback[FDBException] { e =>
-          if (numberOfRestartsWithoutProgress >= MaxAllowedNumberOfRestartsWithoutProgress) {
-            failStage(e)
-          } else {
-            numberOfRestartsWithoutProgress += 1
-            asyncIterable = resumedIterator()
-            onPull()
-          }
-        }
-      }
-
-      private def resumedIterator(): AsyncIterator[KeyValue] = {
-        closeTx()
-        val transaction = transactor.db.createTransaction(materializer.executionContext)
-        tx = Some(transaction)
-        val readTx: ReadTransaction = transaction.snapshot()
-        val beginSel: KeySelector = lastKey.fold(begin)(beginSelector)
-        val endSel = lastKey.fold(end)(endSelector)
-        readTx
-          .getRange(beginSel, endSel, ReadTransaction.ROW_LIMIT_UNLIMITED, reverse, streamingMode)
-          .iterator()
-      }
-
-      private def closeTx(): Unit = Try(tx.foreach(_.close())).getOrElse(())
-
-      private def beginSelector(lastSaw: Array[Byte]): KeySelector = {
-        if (!reverse) KeySelector.firstGreaterThan(lastSaw)
-        else begin
-      }
-
-      private def endSelector(lastSaw: Array[Byte]): KeySelector = {
-        if (!reverse) end
-        else KeySelector.firstGreaterOrEqual(lastSaw)
-      }
+        getAsyncCallback[Throwable](failStage)
     }
   }
 }

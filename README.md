@@ -131,15 +131,23 @@ val updateDbio = eventsSubspace.set(updatedEvent)
 updateDbio.transact(transactor)
 ``` 
 
-## Akka streams
+## Continuous stream of data
 If you want to stream data from a subspace, it can take longer than FoundationDb transaction time limit,
 and your data is immutable and append only, or if approximation is good enough for your use case, 
-you can use `SubspaceSource`. 
+you can use either use `SubspaceSource` (from akka-streams module) 
+or you can use `RefreshingSubspaceStream` (from core module).
+
+Advantage of using `SubspaceSource` is that it closes resources automatically and 
+exposes easier to use API leveraging Akka Streams.
 
 To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and `transactor: Transactor`: 
 ```scala
 val source: Source[Entity, _] = SubspaceSource.from(subspace, transactor)
 ```
+
+However, if you don't want to add Akka as a dependency or you need more control over streaming the data 
+you can use `RefreshingSubspaceStream`.
+
 ## Example - class scheduling
 Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
 
