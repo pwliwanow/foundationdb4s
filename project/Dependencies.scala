@@ -3,7 +3,7 @@ import scala.collection.immutable.Seq
 
 object Dependencies {
 
-  private val akkaVersion = "2.5.16"
+  private val akkaVersion = "2.5.18"
   private lazy val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
   private lazy val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 
@@ -27,8 +27,8 @@ object Dependencies {
   private lazy val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
   private lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
-    Seq(akkaStreamsTestKit, scalaMock).map(_ % Test)
-  private lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaTest).map(_ % Test)
+    Seq(akkaStreamsTestKit).map(_ % Test)
+  private lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
 
   lazy val allAkkaStreamsDependencies
     : Seq[ModuleID] = akkaStreamsDependencies ++ akkaStreamsTestDependencies

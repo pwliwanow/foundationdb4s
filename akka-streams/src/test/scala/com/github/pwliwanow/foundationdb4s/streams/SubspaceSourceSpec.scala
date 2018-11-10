@@ -1,26 +1,19 @@
 package com.github.pwliwanow.foundationdb4s.streams
 
-import java.{lang, util}
 import java.time.Instant
-import java.util.concurrent.{CompletableFuture, Executor}
+import java.util.concurrent.atomic.AtomicInteger
 
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
-import com.apple.foundationdb.async.{AsyncIterable, AsyncIterator}
-import com.apple.foundationdb._
-import com.apple.foundationdb.subspace.Subspace
-import com.apple.foundationdb.tuple.Tuple
+import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import com.github.pwliwanow.foundationdb4s.core._
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.BeforeAndAfterAll
 
-import scala.compat.java8.FutureConverters._
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.collection.immutable.Seq
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.util.{Failure, Try}
-import scala.concurrent.duration._
 
-class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory with BeforeAndAfterAll {
+class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
 
   private val entity =
     FriendEntity(
@@ -30,230 +23,77 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory with B
       friendName = "John")
 
   private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
-  private val earlierSubspace = new Subspace(Tuple.from("foundationDbEarlierTestSubspace"))
-  private val laterSubspace = new Subspace(Tuple.from("foundationDbTestSubspaceLater"))
-  private val slowDownEachIterationFor = 100.millis
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    testTransactor.db.run { tx =>
-      val key = Tuple.from("01", "something").pack
-      val value = Tuple.from("some value").pack
-      tx.set(earlierSubspace.pack(key), value)
-      tx.set(laterSubspace.pack(key), value)
-    }
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    testTransactor.db.run { tx =>
-      tx.clear(earlierSubspace.range())
-      tx.clear(laterSubspace.range())
-    }
-  }
-
-  it should "stream data from whole subspace for streaming that last over 5s" in {
+  it should "stream data from whole underlying RefreshingSubspaceStream" in {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
-    addElements(xs)
-    val res =
-      awaitInf(SubspaceSource.from(typedSubspace, slowedDownTransactor).runWith(Sink.seq)).toList
+    val (stream, noTimesCloseCalled) = refreshingStream(xs)
+    val res = awaitInf(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.seq)).toList
     assert(res === xs)
+    assert(noTimesCloseCalled.get() === 1)
   }
 
-  it should "stream data in the reverse order for streaming that last over 5s" in {
+  it should "fail the stream when hasNext of underlying RefreshingSubspaceStream failed" in {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
-    addElements(xs)
-    val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
-    val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    val res = awaitInf(
-      SubspaceSource
-        .from(typedSubspace, slowedDownTransactor, begin = begin, end = end, reverse = true)
-        .runWith(Sink.seq)).toList
-    assert(res === xs.reverse)
-  }
-
-  it should "stream data from" in {
-    val xs = (1 to 100).iterator.map(entityFromInt).toList
-    addElements(xs)
-    val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
-    val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    val res = awaitInf(
-      SubspaceSource
-        .from(typedSubspace, slowedDownTransactor, begin = begin, end = end, reverse = true)
-        .runWith(Sink.seq)).toList
-    assert(res === xs.reverse)
-  }
-
-  it should "fail if it there was another exception than FDBException during streaming" in {
-    val allEntities = (1 to 1000).iterator.map(entityFromInt).toList
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
-    val mockedReadTx = mock[ReadTransaction]
-    val iterable1 = stub[AsyncIterable[KeyValue]]
-    val iterable2 = stub[AsyncIterable[KeyValue]]
-    val exception = TestError("Unexpected error")
-    val iterator =
-      asyncIteratorFailedAtTheEnd(
-        xs = allEntities.take(100).map(entityToKeyValue),
-        exception = exception)
-    (stubbedDb.createTransaction(_: Executor)).when(*).returns(stubbedTx)
-    (stubbedTx.snapshot _).when().returns(mockedReadTx)
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable1)
-      .once()
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable2)
-      .never()
-    (iterable1.iterator _).when().returns(iterator).once()
-    val transactor = createTransactorWithStubbedDb(stubbedDb)
-    val res = Try(await(SubspaceSource.from(typedSubspace, transactor).runWith(Sink.seq)).toList)
-    assert(res === Failure(exception))
-  }
-
-  it should "fail if database keeps disconnecting" in {
-    val allEntities = (1 to 1000).iterator.map(entityFromInt).toList
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
-    val mockedReadTx = mock[ReadTransaction]
-    val iterable = stub[AsyncIterable[KeyValue]]
-    val iterator = asyncIteratorFailedAtTheEnd(allEntities.take(100).map(entityToKeyValue))
-    (stubbedDb.createTransaction(_: Executor)).when(*).returns(stubbedTx)
-    (stubbedTx.snapshot _).when().returns(mockedReadTx)
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable)
-      .anyNumberOfTimes()
-    (iterable.iterator _).when().returns(iterator).anyNumberOfTimes()
-    val transactor = createTransactorWithStubbedDb(stubbedDb)
-    val res = Try(await(SubspaceSource.from(typedSubspace, transactor).runWith(Sink.seq)).toList)
+    val (stream, noTimesCloseCalled) =
+      refreshingStream(xs, () => Future.failed(new RuntimeException("Error occurred")))
+    val res = Try(awaitInf(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.ignore)))
     assert(res.isFailure)
-    assert(res.asInstanceOf[Failure[_]].exception.getMessage === "FDB error")
+    assert(res.asInstanceOf[Failure[_]].exception.getMessage === "Error occurred")
+    assert(noTimesCloseCalled.get() === 1)
   }
 
-  it should "fail if one of the keys cannot be decoded" in {
-    val allEntities = (1 to 10000).iterator.map(entityFromInt).toList
-    addElements(allEntities)
-    testTransactor.db.run { tx =>
-      val key = typedSubspace.toSubspaceKey(toKey(allEntities(5000)))
-      val value = Tuple.from("some value", 1L: lang.Long).pack
-      tx.set(key, value)
+  it should "emit failure if underlying stream threw exception for `next` method" in {
+    val xs = (1 to 10).iterator.map(entityFromInt).toList
+    def getElem(xs: Seq[FriendEntity], i: Int): FriendEntity = {
+      if (i >= 4 && i <= 6) throw new RuntimeException("Error during decoding")
+      else xs(i)
     }
+    val (stream, noTimesCloseCalled) = refreshingStream(xs, getElem = getElem)
     val res =
-      Try(await(SubspaceSource.from(typedSubspace, testTransactor).runWith(Sink.seq)).toList)
-    assert(res.isFailure)
+      awaitInf {
+        Source
+          .fromGraph(new SubspaceSource(() => stream))
+          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+          .runWith(Sink.fold(ListBuffer.empty[FriendEntity])(_ += _))
+      }
+    assert(res.toList === xs.take(4) ++ xs.drop(7))
+    assert(noTimesCloseCalled.get() === 1)
+  }
+
+  private def refreshingStream[A](xs: Seq[A]): (RefreshingSubspaceStream[A], AtomicInteger) = {
+    refreshingStream(xs, () => Future.successful(false), (xs, i) => xs(i))
+  }
+
+  private def refreshingStream[A](
+      xs: Seq[A],
+      emitAtTheEnd: () => Future[Boolean]): (RefreshingSubspaceStream[A], AtomicInteger) = {
+    refreshingStream(xs, emitAtTheEnd, (xs, i) => xs(i))
+  }
+
+  private def refreshingStream[A](
+      xs: Seq[A],
+      emitAtTheEnd: () => Future[Boolean] = () => Future.successful(false),
+      getElem: (Seq[A], Int) => A): (RefreshingSubspaceStream[A], AtomicInteger) = {
+    val counter = new AtomicInteger(0)
+    val numberOfTimesOnClosedWasCalled = new AtomicInteger(0)
+    val stream = new RefreshingSubspaceStream[A] {
+      override def onHasNext(): Future[Boolean] = {
+        if (counter.get() < xs.length) Future.successful[Boolean](true)
+        else emitAtTheEnd()
+      }
+      override def next(): A = getElem(xs, counter.getAndIncrement())
+      override def close(): Unit = {
+        numberOfTimesOnClosedWasCalled.incrementAndGet()
+        ()
+      }
+    }
+    (stream, numberOfTimesOnClosedWasCalled)
   }
 
   private def entityFromInt(i: Int): FriendEntity = {
     entity.copy(
       addedAt = entity.addedAt.plusSeconds(i.toLong),
       friendId = (entity.friendId.toLong + i).toString)
-  }
-
-  private def toKey(x: FriendEntity): FriendKey =
-    FriendKey(ofUserId = x.ofUserId, addedAt = x.addedAt)
-
-  private def entityToKeyValue(x: FriendEntity): KeyValue = {
-    val key = typedSubspace.toSubspaceKey(typedSubspace.toKey(x))
-    val value = typedSubspace.toRawValue(x)
-    new KeyValue(key, value)
-  }
-
-  private def asyncIteratorFailedAtTheEnd[A](
-      xs: Seq[A],
-      exception: Exception = new FDBException("FDB error", 1)): AsyncIterator[A] = {
-    asyncIterator(xs, () => Future.failed[lang.Boolean](exception))
-  }
-
-  private def asyncIterator[A](
-      xs: Seq[A],
-      emitOnComplete: () => Future[lang.Boolean]): AsyncIterator[A] = {
-    var i = 0
-    new AsyncIterator[A] {
-      override def onHasNext(): CompletableFuture[lang.Boolean] = {
-        if (i < xs.length)
-          Future.successful[lang.Boolean](true).toJava.asInstanceOf[CompletableFuture[lang.Boolean]]
-        else emitOnComplete().toJava.asInstanceOf[CompletableFuture[lang.Boolean]]
-      }
-      override def hasNext: Boolean = await(onHasNext().toScala).booleanValue()
-      override def next(): A = {
-        val x = xs(i)
-        i += 1
-        x
-      }
-      override def cancel(): Unit = ()
-    }
-  }
-
-  private def addElements(xs: List[FriendEntity]): Unit = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import DBIO._
-    val dbio = xs.map(typedSubspace.set).sequence[DBIO, Unit]
-    await(dbio.transact(testTransactor))
-    ()
-  }
-
-  private def createTransactorWithStubbedDb(stubbedDb: Database): Transactor = {
-    new Transactor {
-      override val ec: ExecutionContextExecutor = testTransactor.ec
-      override def apiVersion: Int = testTransactor.apiVersion
-      override def clusterFilePath: Option[String] = testTransactor.clusterFilePath
-      override lazy val db: Database = stubbedDb
-    }
-  }
-
-  private def slowedDownTransactor: Transactor = {
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
-    val stubbedReadTx = mock[ReadTransaction]
-    var tx: Transaction = null
-    (stubbedDb
-      .createTransaction(_: Executor))
-      .when(*)
-      .onCall { _: Executor =>
-        if (tx != null) tx.close()
-        tx = testTransactor.db.createTransaction()
-        stubbedTx
-      }
-      .anyNumberOfTimes()
-    (stubbedTx.snapshot _).when().returns(stubbedReadTx).anyNumberOfTimes()
-    (stubbedTx.close _).when().onCall(_ => tx.close()).anyNumberOfTimes()
-    (stubbedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .onCall {
-        (from: KeySelector, to: KeySelector, limit: Int, reverse: Boolean, mode: StreamingMode) =>
-          val realIterable = tx.getRange(from, to, limit, reverse, mode)
-          slowedDownIterable(realIterable)
-      }
-      .anyNumberOfTimes()
-    createTransactorWithStubbedDb(stubbedDb)
-  }
-
-  private def slowedDownIterable[A](underlying: AsyncIterable[A]): AsyncIterable[A] = {
-    new AsyncIterable[A] {
-      override def iterator(): AsyncIterator[A] = slowedDownIterator(underlying.iterator())
-      override def asList(): CompletableFuture[util.List[A]] = underlying.asList()
-    }
-  }
-
-  private def slowedDownIterator[A](underlying: AsyncIterator[A]): AsyncIterator[A] = {
-    new AsyncIterator[A] {
-      override def onHasNext(): CompletableFuture[lang.Boolean] = {
-        Future(Thread.sleep(slowDownEachIterationFor.toMillis))
-          .flatMap(_ => underlying.onHasNext().toScala)
-          .toJava
-          .asInstanceOf[CompletableFuture[lang.Boolean]]
-      }
-      override def hasNext: Boolean = underlying.hasNext
-      override def next(): A = underlying.next()
-      override def cancel(): Unit = underlying.cancel()
-    }
   }
 
 }

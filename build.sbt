@@ -2,7 +2,8 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
-lazy val fdb4s = (project in file("."))
+lazy val fdb4s = project
+  .in(file("."))
   .settings(commonSettings: _*)
   .settings(skip in publish := true)
   .aggregate(akkaStreams, core, example)
@@ -134,13 +135,14 @@ updateVersionInReadme := {
   import java.io.PrintWriter
   import scala.io.Source
   val pattern = """val fdb4sVersion = "([^\"]*)""""
-  val updatedReadme = Source
-    .fromFile("README.md")
+  val source = Source.fromFile("README.md")
+  val updatedReadme = source
     .getLines()
     .map { line =>
       if (line.matches(pattern)) s"""val fdb4sVersion = "${version.value}""""
       else line
     }
     .mkString("\n") + "\n"
+  source.close()
   new PrintWriter("README.md") { write(updatedReadme); close() }
 }
