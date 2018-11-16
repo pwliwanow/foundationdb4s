@@ -175,6 +175,7 @@ class RefreshingSubspaceStreamSpec
     while (awaitInf(stream.onHasNext())) {
       buffer += stream.next()
     }
+    stream.close()
     buffer.toList
   }
 

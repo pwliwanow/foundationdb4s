@@ -28,6 +28,7 @@ trait Transactor {
 
 object Transactor {
   def apply(version: Int)(implicit ece: ExecutionContextExecutor): Transactor = new Transactor {
+    sys.addShutdownHook(db.close())
     override val ec: ExecutionContextExecutor = ece
     override val apiVersion: Int = version
     override def clusterFilePath: Option[String] = None
