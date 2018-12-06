@@ -64,6 +64,26 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     assert(get(key, subspace).isDefined)
   }
 
+  it should "clear all elements in range" in {
+    val entities = List(
+      entity,
+      entity.copy(ofUserId = "02"),
+      entity.copy(ofUserId = "02", addedAt = Instant.parse("2018-06-03T10:15:30.00Z")),
+      entity.copy(addedAt = Instant.parse("2018-07-13T11:15:30.00Z")),
+      entity.copy(ofUserId = "02", addedAt = Instant.parse("2018-10-13T11:15:30.00Z")),
+      entity.copy(ofUserId = "1")
+    )
+    addElements(entities.map(entityToTuples), subspace)
+    val dbio = typedSubspace.clear(typedSubspace.range(Tuple.from("02")))
+    await(dbio.transact(testTransactor))
+    assert(get(entity, subspace).isDefined)
+    assert(get(entities(1), subspace).isEmpty)
+    assert(get(entities(2), subspace).isEmpty)
+    assert(get(entities(3), subspace).isDefined)
+    assert(get(entities(4), subspace).isEmpty)
+    assert(get(entities(5), subspace).isDefined)
+  }
+
   it should "clear all elements between specified keys" in {
     val entities = List(
       entity,
