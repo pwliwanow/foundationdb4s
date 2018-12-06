@@ -9,7 +9,7 @@ abstract class FoundationDbStreamsSpec
     extends TestKit(ActorSystemHolder.system)
     with FoundationDbSpec {
   implicit override def ec: ExecutionContextExecutor = system.dispatcher
-  override lazy val testTransactor: Transactor = Transactor(520)(ec)
+  override lazy val testTransactor: Transactor = Transactor(600)(ec)
 }
 
 object ActorSystemHolder {

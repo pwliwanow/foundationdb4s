@@ -11,8 +11,8 @@ object Dependencies {
   private lazy val cats = "org.typelevel" %% "cats-core" % catsVersion
   private lazy val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
-  private val foundationDbVersion = "5.2.5"
-  private lazy val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion
+  private val foundationDbVersion = "6.0.15"
+  private lazy val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion withSources()
 
   private val java8CompatVersion = "0.9.0"
   private lazy val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
@@ -28,7 +28,8 @@ object Dependencies {
 
   private lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
     Seq(akkaStreamsTestKit).map(_ % Test)
-  private lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
+  private lazy val coreTestDependencies: Seq[ModuleID] =
+    Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
 
   lazy val allAkkaStreamsDependencies
     : Seq[ModuleID] = akkaStreamsDependencies ++ akkaStreamsTestDependencies

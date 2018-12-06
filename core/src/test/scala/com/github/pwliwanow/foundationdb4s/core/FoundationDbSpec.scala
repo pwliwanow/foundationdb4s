@@ -20,7 +20,7 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
   implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
   val subspace = new Subspace(Tuple.from("foundationDbTestSubspace"))
 
-  lazy val testTransactor = Transactor(version = 520)
+  lazy val testTransactor = Transactor(version = 600)
 
   protected val typedSubspace = new TypedSubspace[FriendEntity, FriendKey] {
     override val subspace: Subspace = spec.subspace

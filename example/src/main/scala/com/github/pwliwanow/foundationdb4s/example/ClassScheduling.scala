@@ -15,7 +15,7 @@ import scala.util.Random
 
 object ClassScheduling {
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val transactor = Transactor(version = 520)
+  val transactor = Transactor(version = 600)
 
   final case class Attendance(student: String, `class`: Class)
   final case class ClassAvailability(`class`: Class, seatsAvailable: Int)
