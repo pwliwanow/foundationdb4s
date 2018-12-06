@@ -28,7 +28,8 @@ object Dependencies {
 
   private lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
     Seq(akkaStreamsTestKit).map(_ % Test)
-  private lazy val coreTestDependencies: Seq[ModuleID] = Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
+  private lazy val coreTestDependencies: Seq[ModuleID] =
+    Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
 
   lazy val allAkkaStreamsDependencies
     : Seq[ModuleID] = akkaStreamsDependencies ++ akkaStreamsTestDependencies

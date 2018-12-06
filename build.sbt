@@ -36,7 +36,7 @@ lazy val example = project
 
 lazy val commonSettings = buildSettings ++ Seq(
   organization := "com.github.pwliwanow.foundationdb4s",
-  scalaVersion := "2.12.6",
+  scalaVersion := "2.12.8",
   scalafmtOnCompile := true,
   coverageExcludedPackages := "com.github.pwliwanow.foundationdb4s.example.*",
   releaseProcess := Seq(
