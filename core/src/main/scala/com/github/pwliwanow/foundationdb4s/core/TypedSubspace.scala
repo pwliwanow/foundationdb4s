@@ -50,6 +50,11 @@ trait TypedSubspace[Entity, Key] {
       Future.fromTry(Try(tx.clear(packedKey)))
   }
 
+  final def clear(range: Range): DBIO[Unit] = DBIO {
+    case (tx, _) =>
+      Future.fromTry(Try(tx.clear(range)))
+  }
+
   final def clear(from: Key, to: Key): DBIO[Unit] = DBIO {
     case (tx, _) =>
       val packedFromKey = toSubspaceKey(from)
