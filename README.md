@@ -9,7 +9,7 @@ It aims to be type-safe and idiomatic for Scala.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val transactor = Transactor(version = 520)
+val transactor = Transactor(version = 600)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
 
