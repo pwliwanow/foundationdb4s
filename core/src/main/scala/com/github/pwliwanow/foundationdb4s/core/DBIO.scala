@@ -6,7 +6,7 @@ import cats.{Monad, StackSafeMonad}
 import com.apple.foundationdb.Transaction
 import com.apple.foundationdb.tuple.Versionstamp
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 import scala.compat.java8.FutureConverters._
 
 final case class DBIO[+A](
@@ -21,25 +21,59 @@ final case class DBIO[+A](
       run(tx, ec).flatMap(a => f(a).run(tx, ec))(ec)
   }
 
+  /** Runs a transactional DBIO with retry logic in a non-blocking way.
+    *
+    * In some cases client can be unable to determine whether a transaction succeeded.
+    * In these cases, your transaction may be executed twice.
+    * For more information see:
+    * https://apple.github.io/foundationdb/administration.html#administration-running-foundationdb#transactions-with-unknown-results
+    *
+    * Any error encountered when executing DBIO will be set on the resulting Future.
+    *
+    * @return a [[Future]] that will contain a value returned by running this DBIO
+    */
   def transact(transactor: Transactor): Future[A] = {
     transactVersionstamped(transactor).map { case (x, _) => x }(transactor.ec)
   }
 
+  /** Runs a transactional DBIO with retry logic in a non-blocking way.
+    *
+    * In some cases client can be unable to determine whether a transaction succeeded.
+    * In these cases, your transaction may be executed twice.
+    * For more information see:
+    * https://apple.github.io/foundationdb/administration.html#administration-running-foundationdb#transactions-with-unknown-results
+    *
+    * Any error encountered when executing DBIO will be set on the resulting Future.
+    *
+    * @return a [[Future]] that will contain a tuple of value returned by running this DBIO and
+    *         an optional [[Versionstamp]].
+    *         Returned [[Versionstamp]] will be empty if executing this DBIO did not modify the database
+    *         (e.g. when running this function on `DBIO.pure("value")`).
+    *         For DBIO that modified the database, [[Versionstamp]] will be equal to the versionstamp used
+    *         by any versionstamp operations in this DBIO.
+    */
   def transactVersionstamped(
       transactor: Transactor,
-      userVersion: Int = 0): Future[(A, Versionstamp)] = {
+      userVersion: Int = 0): Future[(A, Option[Versionstamp])] = {
     implicit val ec = transactor.ec
-    var futureVersionstamp: Future[Versionstamp] = null
+    val promisedVersionstamp = Promise[Option[Versionstamp]]
     val futureRes: Future[A] = transactor.db
       .runAsync(
         (tx: Transaction) => {
-          futureVersionstamp = tx.getVersionstamp.toScala.map(Versionstamp.complete(_, userVersion))
+          val futureMaybeVersionstamp =
+            tx.getVersionstamp.toScala
+              .map { byteArray =>
+                val versionstamp = Versionstamp.complete(byteArray, userVersion)
+                Some(versionstamp)
+              }
+              .recover { case _ => None }
+          promisedVersionstamp.completeWith(futureMaybeVersionstamp)
           run(tx, transactor.ec).toJava.asInstanceOf[CompletableFuture[A]]
         },
         transactor.ec
       )
       .toScala
-    futureRes.zip(futureVersionstamp)
+    futureRes.zip(promisedVersionstamp.future)
   }
 }
 

@@ -26,7 +26,8 @@ class VersionstampedSubspaceSpec extends FoundationDbSpec { spec =>
       val value = """{ "content": "some value" }"""
       val event = Event(Versionstamp.incomplete(userVersion), value)
       val setDbio = eventSubspace.set(event)
-      val (_, versionstamp) = await(setDbio.transactVersionstamped(testTransactor, userVersion))
+      val (_, Some(versionstamp)) =
+        await(setDbio.transactVersionstamped(testTransactor, userVersion))
       val getDbio = eventSubspace.get(versionstamp).transact(testTransactor)
       assert(await(getDbio) === Some(Event(versionstamp, value)))
     }
