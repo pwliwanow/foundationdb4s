@@ -6,7 +6,7 @@ import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
 
 import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class DBIOSpec extends FoundationDbSpec {
 
@@ -128,7 +128,8 @@ class DBIOSpec extends FoundationDbSpec {
           Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedTuple, Array.emptyByteArray))
         }
       }
-      val (_, versionstamp) = await(modifyDbio.transactVersionstamped(testTransactor, userVersion))
+      val (_, Some(versionstamp)) =
+        await(modifyDbio.transactVersionstamped(testTransactor, userVersion))
       val expected = testTransactor.db.run { tx =>
         val serialized = tx.getRange(subspace.range(Tuple.from("testKey")), 1).iterator.next.getKey
         val tuple = subspace.unpack(serialized)
@@ -136,6 +137,13 @@ class DBIOSpec extends FoundationDbSpec {
       }
       assert(versionstamp === expected)
     }
+  }
+
+  it should "not fail when transactVersiontamped is called and DBIO does not modify database" in {
+    val value = "This dbio does not modify any data"
+    val dbio = DBIO.pure(value)
+    val result = Try(await(dbio.transactVersionstamped(testTransactor))).map { case (v, _) => v }
+    assert(result === Success(value))
   }
 
 }

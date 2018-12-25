@@ -83,15 +83,17 @@ User version should be set by the client.
 It allows the user to use this class to impose a total order of items across multiple 
 transactions in the database in a consistent and conflict-free way.
 
-More information in [FoundationDB java doc](https://apple.github.io/foundationdb/javadoc/com/apple/foundationdb/tuple/Versionstamp.html).
+More information in [FoundationDB Javadoc](https://apple.github.io/foundationdb/javadoc/com/apple/foundationdb/tuple/Versionstamp.html).
 
 ### Working with Versionstamps
 
 foundationdb4s supports working with Keys that contain versionstamps by providing `VersionstampedSubspace`.
-Compared to `TypedSubspace`, it requires additinal method to be implemented: `extractVersionstamp: Key => Versiostamp`.
+Compared to `TypedSubspace`, it requires additional method to be implemented: `extractVersionstamp: Key => Versiostamp`.
 
-To obtain versionstamp which was used by any versionstamp operations in this transaction, 
+To obtain versionstamp which was used by any versionstamp operations in this `DBIO`, 
 use `transactVersionstamped` instead of `transact`.
+
+Note that if the given `DBIO` did not modify the database, returned `Versionstamp` will be empty.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
@@ -122,7 +124,7 @@ val completedVersionstamp: Versionstamp =
   Await.result(
     setDbio
       .transactVersionstamped(transactor, userVersion = 0)
-      .map { case (_, versionstamp) => versionstamp },
+      .map { case (_, Some(versionstamp)) => versionstamp },
     Duration.Inf)
 
 // update previously persisted event
