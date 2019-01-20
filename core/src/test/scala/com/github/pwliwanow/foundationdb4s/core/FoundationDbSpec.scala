@@ -17,10 +17,10 @@ import scala.util.{Failure, Try}
 trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
   spec =>
 
-  implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+  implicit def ec: ExecutionContextExecutor = TransactorHolder.transactor.ec
   val subspace = new Subspace(Tuple.from("foundationDbTestSubspace"))
 
-  lazy val testTransactor = Transactor(version = 600)
+  lazy val testTransactor = TransactorHolder.transactor
 
   protected val typedSubspace = new TypedSubspace[FriendEntity, FriendKey] {
     override val subspace: Subspace = spec.subspace
@@ -99,3 +99,9 @@ final case class FriendEntity(
 final case class FriendKey(ofUserId: String, addedAt: Instant)
 
 final case class TestError(msg: String) extends RuntimeException
+
+object TransactorHolder {
+  private implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+  val transactor = Transactor(version = 600)
+  sys.addShutdownHook(transactor.close())
+}
