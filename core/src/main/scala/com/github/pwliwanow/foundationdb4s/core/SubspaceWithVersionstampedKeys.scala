@@ -5,10 +5,10 @@ import com.apple.foundationdb.tuple.Versionstamp
 import scala.concurrent.Future
 import scala.util.Try
 
-/** VersionstampedSubspace provides API for interacting with TypedSubspace
+/** SubspaceWithVersionstampedKeys provides API for interacting with TypedSubspace
   * whose Keys contain [[Versionstamp]].
   */
-trait VersionstampedSubspace[Entity, Key] extends TypedSubspace[Entity, Key] {
+trait SubspaceWithVersionstampedKeys[Entity, Key] extends TypedSubspace[Entity, Key] {
 
   protected def extractVersionstamp(key: Key): Versionstamp
 
@@ -23,16 +23,15 @@ trait VersionstampedSubspace[Entity, Key] extends TypedSubspace[Entity, Key] {
     * Note that if the Key contains incomplete [[Versionstamp]],
     * it will not be possible to use `get` method to fetch the entity in the same transaction.
     */
-  override def set(entity: Entity): DBIO[Unit] = DBIO {
-    case (tx, _) =>
-      val packedValue = toRawValue(entity)
-      val key = toKey(entity)
-      val versionstamp = extractVersionstamp(key)
-      val packedKey = toSubspaceKey(key)
-      val tryAction =
-        if (versionstamp.isComplete) Try(tx.set(packedKey, packedValue))
-        else Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedKey, packedValue))
-      Future.fromTry(tryAction)
+  override def set(entity: Entity): DBIO[Unit] = DBIO { (tx, _) =>
+    val packedValue = toRawValue(entity)
+    val key = toKey(entity)
+    val versionstamp = extractVersionstamp(key)
+    val packedKey = toSubspaceKey(key)
+    val tryAction =
+      if (versionstamp.isComplete) Try(tx.set(packedKey, packedValue))
+      else Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedKey, packedValue))
+    Future.fromTry(tryAction)
   }
 
 }

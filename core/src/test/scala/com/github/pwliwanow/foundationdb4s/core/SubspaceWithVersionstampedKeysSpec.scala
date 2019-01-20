@@ -3,11 +3,11 @@ package com.github.pwliwanow.foundationdb4s.core
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
 
-class VersionstampedSubspaceSpec extends FoundationDbSpec { spec =>
+class SubspaceWithVersionstampedKeysSpec extends FoundationDbSpec { spec =>
 
   private case class Event(key: Versionstamp, value: String)
 
-  private val eventSubspace = new VersionstampedSubspace[Event, Versionstamp] {
+  private val eventSubspace = new SubspaceWithVersionstampedKeys[Event, Versionstamp] {
     override val subspace: Subspace = spec.subspace
     override def extractVersionstamp(key: Versionstamp): Versionstamp = key
     override def toKey(entity: Event): Versionstamp = entity.key
