@@ -89,8 +89,9 @@ More information in [FoundationDB Javadoc](https://apple.github.io/foundationdb/
 
 ### Working with Versionstamps
 
-foundationdb4s supports working with Keys that contain versionstamps by providing `VersionstampedSubspace`.
-Compared to `TypedSubspace`, it requires additional method to be implemented: `extractVersionstamp: Key => Versiostamp`.
+foundationdb4s supports working with keys or values that contain versionstamps 
+by providing `SubspaceWithVersionstampedKeys` and `SubspaceWithVersionstampedValues`.
+Compared to `TypedSubspace`, those require additional method to be implemented: `extractVersionstamp`.
 
 To obtain versionstamp which was used by any versionstamp operations in this `DBIO`, 
 use `transactVersionstamped` instead of `transact`.
@@ -99,12 +100,12 @@ Note that if the given `DBIO` did not modify the database, returned `Versionstam
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val transactor = Transactor(version = 520)
+val transactor = Transactor(version = 600)
 
 case class EventKey(eventType: String, versionstamp: Versionstamp)
 case class Event(key: EventKey, content: Array[Byte])
 
-val eventsSubspace = new VersionstampedSubspace[Event, EventKey] {
+val eventsSubspace = new SubspaceWithVersionstampedKeys[Event, EventKey] {
   override val subspace: Subspace = new Subspace(Tuple.from("events"))
   override def toKey(entity: Event): EventKey = entity.key
   override def toRawValue(entity: Event): Array[Byte] = event.content
