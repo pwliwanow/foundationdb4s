@@ -17,9 +17,9 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
 
   private val entity =
     FriendEntity(
-      ofUserId = "01",
+      ofUserId = 1L,
       addedAt = Instant.parse("2018-08-03T10:15:30.00Z"),
-      friendId = "10",
+      friendId = 10L,
       friendName = "John")
 
   private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
@@ -27,7 +27,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
   it should "stream data from whole underlying RefreshingSubspaceStream" in {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
     val (stream, noTimesCloseCalled) = refreshingStream(xs)
-    val res = awaitInf(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.seq)).toList
+    val res = Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.seq).awaitInf.toList
     assert(res === xs)
     assert(noTimesCloseCalled.get() === 1)
   }
@@ -36,7 +36,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
     val (stream, noTimesCloseCalled) =
       refreshingStream(xs, () => Future.failed(new RuntimeException("Error occurred")))
-    val res = Try(awaitInf(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.ignore)))
+    val res = Try(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.ignore).awaitInf)
     assert(res.isFailure)
     assert(res.asInstanceOf[Failure[_]].exception.getMessage === "Error occurred")
     assert(noTimesCloseCalled.get() === 1)
@@ -50,12 +50,11 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
     }
     val (stream, noTimesCloseCalled) = refreshingStream(xs, getElem = getElem)
     val res =
-      awaitInf {
-        Source
-          .fromGraph(new SubspaceSource(() => stream))
-          .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
-          .runWith(Sink.fold(ListBuffer.empty[FriendEntity])(_ += _))
-      }
+      Source
+        .fromGraph(new SubspaceSource(() => stream))
+        .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+        .runWith(Sink.fold(ListBuffer.empty[FriendEntity])(_ += _))
+        .awaitInf
     assert(res.toList === xs.take(4) ++ xs.drop(7))
     assert(noTimesCloseCalled.get() === 1)
   }
@@ -82,6 +81,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
         else emitAtTheEnd()
       }
       override def next(): A = getElem(xs, counter.getAndIncrement())
+      override def resume(): Unit = ()
       override def close(): Unit = {
         numberOfTimesOnClosedWasCalled.incrementAndGet()
         ()
@@ -91,9 +91,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
   }
 
   private def entityFromInt(i: Int): FriendEntity = {
-    entity.copy(
-      addedAt = entity.addedAt.plusSeconds(i.toLong),
-      friendId = (entity.friendId.toLong + i).toString)
+    entity.copy(addedAt = entity.addedAt.plusSeconds(i.toLong), friendId = entity.friendId + i)
   }
 
 }

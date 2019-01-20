@@ -14,7 +14,7 @@ import org.scalatest.BeforeAndAfterAll
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 import scala.concurrent.duration._
 import scala.compat.java8.FutureConverters._
 import scala.util.{Failure, Try}
@@ -26,9 +26,9 @@ class RefreshingSubspaceStreamSpec
 
   private val entity =
     FriendEntity(
-      ofUserId = "01",
+      ofUserId = 1L,
       addedAt = Instant.parse("2018-08-03T10:15:30.00Z"),
-      friendId = "10",
+      friendId = 10L,
       friendName = "John")
 
   private val earlierSubspace = new Subspace(Tuple.from("foundationDbEarlierTestSubspace"))
@@ -57,8 +57,24 @@ class RefreshingSubspaceStreamSpec
     val xs = (1 to 100).iterator.map(entityFromInt).toList
     addElements(xs)
     val res =
-      collectAll(RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, slowedDownTransactor))
+      collectAllAndCloseStream(
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, slowedDownTransactor))
     assert(res === xs)
+  }
+
+  it should "be possible to resume stream once it reached the end earlier" in {
+    val numberOfElements = 100
+    val (firstHalf, secondHalf) =
+      (1 to numberOfElements).iterator.map(entityFromInt).toList.splitAt(numberOfElements / 2)
+    addElements(firstHalf)
+    val stream = RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, testTransactor)
+    val res1 = collectAll(stream)
+    assert(res1 === firstHalf)
+    addElements(secondHalf)
+    stream.resume()
+    val res2 = collectAll(stream)
+    assert(res2 === secondHalf)
+    stream.close()
   }
 
   it should "stream data in the reverse order for streaming that last over 5s" in {
@@ -66,7 +82,7 @@ class RefreshingSubspaceStreamSpec
     addElements(xs)
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    val res = collectAll(
+    val res = collectAllAndCloseStream(
       RefreshingSubspaceStream.fromTypedSubspace(
         typedSubspace,
         slowedDownTransactor,
@@ -81,7 +97,7 @@ class RefreshingSubspaceStreamSpec
     addElements(xs)
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    val res = collectAll(
+    val res = collectAllAndCloseStream(
       RefreshingSubspaceStream.fromTypedSubspace(
         typedSubspace,
         slowedDownTransactor,
@@ -117,7 +133,9 @@ class RefreshingSubspaceStreamSpec
       .never()
     (iterable1.iterator _).when().returns(iterator).once()
     val transactor = createTransactorWithStubbedDb(stubbedDb)
-    val res = Try(collectAll(RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
+    val res = Try(
+      collectAllAndCloseStream(
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
     assert(res === Failure(exception))
   }
 
@@ -137,7 +155,9 @@ class RefreshingSubspaceStreamSpec
       .anyNumberOfTimes()
     (iterable.iterator _).when().returns(iterator).anyNumberOfTimes()
     val transactor = createTransactorWithStubbedDb(stubbedDb)
-    val res = Try(collectAll(RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
+    val res = Try(
+      collectAllAndCloseStream(
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
     assert(res.isFailure)
     assert(res.asInstanceOf[Failure[_]].exception.isInstanceOf[TooManyFailsException])
   }
@@ -151,14 +171,14 @@ class RefreshingSubspaceStreamSpec
       tx.set(key, value)
     }
     val res =
-      Try(collectAll(RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, testTransactor)))
+      Try(
+        collectAllAndCloseStream(
+          RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, testTransactor)))
     assert(res.isFailure)
   }
 
   private def entityFromInt(i: Int): FriendEntity = {
-    entity.copy(
-      addedAt = entity.addedAt.plusSeconds(i.toLong),
-      friendId = (entity.friendId.toLong + i).toString)
+    entity.copy(addedAt = entity.addedAt.plusSeconds(i.toLong), friendId = entity.friendId + i)
   }
 
   private def toKey(x: FriendEntity): FriendKey =
@@ -171,13 +191,15 @@ class RefreshingSubspaceStreamSpec
   }
 
   private def collectAll[A](stream: RefreshingSubspaceStream[A]): List[A] = {
-    val tryResult = Try {
-      val buffer = ListBuffer.empty[A]
-      while (awaitInf(stream.onHasNext())) {
-        buffer += stream.next()
-      }
-      buffer.toList
+    val buffer = ListBuffer.empty[A]
+    while (stream.onHasNext().awaitInf) {
+      buffer += stream.next()
     }
+    buffer.toList
+  }
+
+  private def collectAllAndCloseStream[A](stream: RefreshingSubspaceStream[A]): List[A] = {
+    val tryResult = Try(collectAll(stream))
     stream.close()
     tryResult.get
   }
@@ -198,7 +220,7 @@ class RefreshingSubspaceStreamSpec
           Future.successful[lang.Boolean](true).toJava.asInstanceOf[CompletableFuture[lang.Boolean]]
         else emitOnComplete().toJava.asInstanceOf[CompletableFuture[lang.Boolean]]
       }
-      override def hasNext: Boolean = await(onHasNext().toScala).booleanValue()
+      override def hasNext: Boolean = onHasNext().toScala.await.booleanValue()
       override def next(): A = {
         val x = xs(i)
         i += 1
@@ -213,7 +235,7 @@ class RefreshingSubspaceStreamSpec
     import cats.syntax.traverse._
     import DBIO._
     val dbio = xs.map(typedSubspace.set).sequence[DBIO, Unit]
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     ()
   }
 
@@ -264,7 +286,7 @@ class RefreshingSubspaceStreamSpec
   private def slowedDownIterator[A](underlying: FdbAsyncIterator[A]): FdbAsyncIterator[A] = {
     new FdbAsyncIterator[A] {
       override def onHasNext(): CompletableFuture[lang.Boolean] = {
-        Future(Thread.sleep(slowDownEachIterationFor.toMillis))
+        Future(blocking(Thread.sleep(slowDownEachIterationFor.toMillis)))
           .flatMap(_ => underlying.onHasNext().toScala)
           .toJava
           .asInstanceOf[CompletableFuture[lang.Boolean]]

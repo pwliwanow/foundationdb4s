@@ -99,9 +99,9 @@ class ReadDBIOSpec extends FoundationDbSpec {
     val value = Tuple.from("value").pack
     testTransactor.db.run(tx => tx.set(key, value))
     val readDbio = ReadDBIO { case (tx, _) => tx.get(key).toScala }
-    val _ = await(readDbio.transact(testTransactor))
+    val _ = readDbio.transact(testTransactor).await
     val result = {
-      val byteArray = await(readDbio.transact(testTransactor))
+      val byteArray = readDbio.transact(testTransactor).await
       Tuple.fromBytes(byteArray).getString(0)
     }
     assert(result === "value")

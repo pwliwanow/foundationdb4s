@@ -153,6 +153,26 @@ val source: Source[Entity, _] = SubspaceSource.from(subspace, transactor)
 However, if you don't want to add Akka as a dependency or you need more control over streaming the data 
 you can use `RefreshingSubspaceStream`.
 
+### Processing data continuously
+If a subspace (or part of a subspace) is modeled as a log and one wants to process the data once it arrives, 
+`InfinitePollingSubspaceSource` may become useful.
+
+`InfinitePollingSubspaceSource` will stream the data from the subspace (or from part of a subspace). 
+Once it reaches the last element it will try to resume from the last seen value.
+
+```scala
+val processEntityFlow: Flow[Entity, Entity, NotUsed] = ???
+val commitOffsetSink: Sink[Entity, NotUsed] = ???
+val lastSeenKey: Array[Byte] = fetchLastSeenKey()
+val source = Source[Entity, _] = 
+  InfinitePollingSubspaceSource.from(
+    typedSubspace, 
+    transactor, 
+    pollingInterval = 100.millis, 
+    begin = KeySelector.firstGreaterThan(lastSeenKey))
+source.via(processEntityFlow).to(commitOffsetFlow).run()
+```
+
 ## Example - class scheduling
 Module `example` contains implementation of [Class Scheduling from FoundationDB website](https://apple.github.io/foundationdb/class-scheduling-java.html).
 
