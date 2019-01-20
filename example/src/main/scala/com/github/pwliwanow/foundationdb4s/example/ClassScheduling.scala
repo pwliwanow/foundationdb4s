@@ -165,6 +165,7 @@ object ClassScheduling {
     val txPerSec = numberOfTxs / (timeInMs / 1000)
     println(
       s"Ran $numberOfTxs transactions in ${timeInMs}ms. Throughput: $txPerSec transactions per second.")
+    transactor.close()
   }
 
   private def measure[A](f: => A): (A, Long) = {

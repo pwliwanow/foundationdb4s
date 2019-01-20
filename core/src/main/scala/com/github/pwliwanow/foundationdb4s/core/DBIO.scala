@@ -41,7 +41,7 @@ final case class DBIO[+A](
     * In some cases client can be unable to determine whether a transaction succeeded.
     * In these cases, your transaction may be executed twice.
     * For more information see:
-    * https://apple.github.io/foundationdb/administration.html#administration-running-foundationdb#transactions-with-unknown-results
+    * https://apple.github.io/foundationdb/developer-guide.html#transactions-with-unknown-results
     *
     * Any error encountered when executing DBIO will be set on the resulting Future.
     *

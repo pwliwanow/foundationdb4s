@@ -9,9 +9,16 @@ import scala.concurrent.ExecutionContextExecutor
 trait Transactor {
   val ec: ExecutionContextExecutor
 
+  // keeps the same database opened as per:
+  // https://forums.foundationdb.org/t/db-connection-opening-closing/630/2
   lazy val db: Database = {
     FDB.selectAPIVersion(apiVersion).open(clusterFilePath.orNull, ec)
   }
+
+  /** Closes the db and releases all associated resources.
+    * This must be closed at least once after db is no longer in use.
+    */
+  def close(): Unit = db.close()
 
   def apiVersion: Int
 
@@ -28,7 +35,6 @@ trait Transactor {
 
 object Transactor {
   def apply(version: Int)(implicit ece: ExecutionContextExecutor): Transactor = new Transactor {
-    sys.addShutdownHook(db.close())
     override val ec: ExecutionContextExecutor = ece
     override val apiVersion: Int = version
     override def clusterFilePath: Option[String] = None

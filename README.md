@@ -34,6 +34,8 @@ val dbio: DBIO[Option[Book]] = for {
 } yield maybeBook
 
 val maybeBook: Future[Option[Book]] = dbio.transact(transactor)
+
+// to close transactor when application finishes: transactor.close()
 ```
 
 The library is still incomplete and does not cover everything official client does.
