@@ -171,12 +171,15 @@ class RefreshingSubspaceStreamSpec
   }
 
   private def collectAll[A](stream: RefreshingSubspaceStream[A]): List[A] = {
-    val buffer = ListBuffer.empty[A]
-    while (awaitInf(stream.onHasNext())) {
-      buffer += stream.next()
+    val tryResult = Try {
+      val buffer = ListBuffer.empty[A]
+      while (awaitInf(stream.onHasNext())) {
+        buffer += stream.next()
+      }
+      buffer.toList
     }
     stream.close()
-    buffer.toList
+    tryResult.get
   }
 
   private def asyncIteratorFailedAtTheEnd[A](
