@@ -6,7 +6,7 @@ import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
 
 import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 class DBIOSpec extends FoundationDbSpec {
 
@@ -103,8 +103,9 @@ class DBIOSpec extends FoundationDbSpec {
     assert(valueFromTx === "value")
   }
 
-  it should "rollback transaction if dbio is a failure" in {
+  it should "rollback transaction if dbio is a failure and failed with exception that caused failure" in {
     val key = subspace.pack(Tuple.from("testKey"))
+    val error = TestError("Failure")
     val failedDbio = for {
       _ <- DBIO {
         case (tx, _) =>
@@ -115,7 +116,7 @@ class DBIOSpec extends FoundationDbSpec {
     val tryResult = Try(await(failedDbio.transact(testTransactor)))
     val value: Array[Byte] = testTransactor.db.runAsync(tx => tx.get(key)).get()
 
-    assert(tryResult.isFailure)
+    assert(tryResult === Failure(error))
     assert(value === null)
   }
 
