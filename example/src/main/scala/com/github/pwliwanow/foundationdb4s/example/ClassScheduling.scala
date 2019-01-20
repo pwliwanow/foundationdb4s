@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 
 import cats.instances.list._
 import cats.syntax.traverse._
+import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 import com.github.pwliwanow.foundationdb4s.core.{DBIO, ReadDBIO, Transactor, TypedSubspace}
 
@@ -23,8 +24,7 @@ object ClassScheduling {
 
   val attendanceSubspace: TypedSubspace[Attendance, Attendance] =
     new TypedSubspace[Attendance, Attendance] {
-      override val subspace: com.apple.foundationdb.subspace.Subspace =
-        transactor.createOrOpen("class-scheduling", "attendence")
+      override val subspace: Subspace = transactor.createOrOpen("class-scheduling", "attendence")
       override def toKey(entity: Attendance): Attendance = entity
       override def toTupledKey(key: Attendance): Tuple = {
         Tuple.from(key.student, key.`class`.time, key.`class`.`type`, key.`class`.level)
@@ -43,8 +43,7 @@ object ClassScheduling {
 
   val classAvailabilitySubspace: TypedSubspace[ClassAvailability, Class] =
     new TypedSubspace[ClassAvailability, Class] {
-      override val subspace: com.apple.foundationdb.subspace.Subspace =
-        transactor.createOrOpen("class-scheduling", "class")
+      override val subspace: Subspace = transactor.createOrOpen("class-scheduling", "class")
       override def toKey(entity: ClassAvailability): Class = entity.`class`
       override def toTupledKey(key: Class): Tuple =
         Tuple.from(key.time, key.`type`, key.level)

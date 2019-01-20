@@ -29,14 +29,15 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
       FriendKey(ofUserId = entity.ofUserId, addedAt = entity.addedAt)
 
     override def toRawValue(entity: FriendEntity): Array[Byte] =
-      Tuple.from(entity.friendId, entity.friendName).pack
+      new Tuple().add(entity.friendId).add(entity.friendName).pack
 
-    override protected def toTupledKey(key: FriendKey): Tuple =
-      Tuple.from(key.ofUserId).add(key.addedAt.toEpochMilli)
+    override protected def toTupledKey(key: FriendKey): Tuple = {
+      new Tuple().add(key.ofUserId).add(key.addedAt.toEpochMilli)
+    }
 
     override protected def toKey(tupledKey: Tuple): FriendKey = {
       val addedAt = Instant.ofEpochMilli(tupledKey.getLong(1))
-      FriendKey(ofUserId = tupledKey.getString(0), addedAt = addedAt)
+      FriendKey(ofUserId = tupledKey.getLong(0), addedAt = addedAt)
     }
 
     override protected def toEntity(key: FriendKey, value: Array[Byte]): FriendEntity = {
@@ -44,7 +45,7 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
       FriendEntity(
         ofUserId = key.ofUserId,
         addedAt = key.addedAt,
-        friendId = tupledValue.getString(0),
+        friendId = tupledValue.getLong(0),
         friendName = tupledValue.getString(1))
     }
   }
@@ -61,9 +62,11 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
     assertEq[A, ReadDBIO](isEqReadDbio, _.transact(testTransactor))
   }
 
-  protected def await[A](future: Future[A]): A = Await.result(future, 3.second)
-
-  protected def awaitInf[A](future: Future[A]): A = Await.result(future, Duration.Inf)
+  implicit class FutureHolder[A](future: Future[A]) {
+    def await: A = await(3.seconds)
+    def await(duration: Duration): A = Await.result(future, duration)
+    def awaitInf: A = await(Duration.Inf)
+  }
 
   protected implicit val keySelectorEquality: Equality[KeySelector] =
     new Equality[KeySelector] {
@@ -77,7 +80,7 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
   private def assertEq[A, F[_]](isEqDbio: IsEq[F[A]], f: F[A] => Future[A]): Assertion = {
     val leftFuture = f(isEqDbio.lhs)
     val rightFuture = f(isEqDbio.rhs)
-    val (left, right) = (Try(await(leftFuture)), Try(await(rightFuture)))
+    val (left, right) = (Try(leftFuture.await), Try(rightFuture.await))
     assertTry(left, right)
   }
 
@@ -90,13 +93,9 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
 
 }
 
-final case class FriendEntity(
-    ofUserId: String,
-    addedAt: Instant,
-    friendId: String,
-    friendName: String)
+final case class FriendEntity(ofUserId: Long, addedAt: Instant, friendId: Long, friendName: String)
 
-final case class FriendKey(ofUserId: String, addedAt: Instant)
+final case class FriendKey(ofUserId: Long, addedAt: Instant)
 
 final case class TestError(msg: String) extends RuntimeException
 

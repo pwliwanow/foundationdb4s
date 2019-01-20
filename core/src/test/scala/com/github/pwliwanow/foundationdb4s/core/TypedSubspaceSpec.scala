@@ -13,9 +13,9 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   private val entity =
     FriendEntity(
-      ofUserId = "01",
+      ofUserId = 1L,
       addedAt = Instant.parse("2018-08-03T10:15:30.00Z"),
-      friendId = "10",
+      friendId = 10L,
       friendName = "John")
   private val entityKey = FriendKey(ofUserId = entity.ofUserId, addedAt = entity.addedAt)
   private val (key, value) = entityToTuples(entity)
@@ -40,7 +40,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear the entire subspace" in {
     allSubspaces.foreach(s => addElement(key, value, s))
     val dbio = typedSubspace.clear()
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isEmpty)
@@ -49,7 +49,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear key" in {
     allSubspaces.foreach(s => addElement(key, value, s))
     val dbio = typedSubspace.clear(entityKey)
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isEmpty)
@@ -57,8 +57,8 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   it should "not clear anything if provided key does not exist in db" in {
     allSubspaces.foreach(s => addElement(key, value, s))
-    val dbio = typedSubspace.clear(entityKey.copy(ofUserId = "02"))
-    await(dbio.transact(testTransactor))
+    val dbio = typedSubspace.clear(entityKey.copy(ofUserId = 2L))
+    dbio.transact(testTransactor).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isDefined)
@@ -67,15 +67,15 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear all elements in range" in {
     val entities = List(
       entity,
-      entity.copy(ofUserId = "02"),
-      entity.copy(ofUserId = "02", addedAt = Instant.parse("2018-06-03T10:15:30.00Z")),
+      entity.copy(ofUserId = 2L),
+      entity.copy(ofUserId = 2L, addedAt = Instant.parse("2018-06-03T10:15:30.00Z")),
       entity.copy(addedAt = Instant.parse("2018-07-13T11:15:30.00Z")),
-      entity.copy(ofUserId = "02", addedAt = Instant.parse("2018-10-13T11:15:30.00Z")),
-      entity.copy(ofUserId = "1")
+      entity.copy(ofUserId = 2L, addedAt = Instant.parse("2018-10-13T11:15:30.00Z")),
+      entity.copy(ofUserId = 1L)
     )
     addElements(entities.map(entityToTuples), subspace)
-    val dbio = typedSubspace.clear(typedSubspace.range(Tuple.from("02")))
-    await(dbio.transact(testTransactor))
+    val dbio = typedSubspace.clear(typedSubspace.range(new Tuple().add(2L)))
+    dbio.transact(testTransactor).await
     assert(get(entity, subspace).isDefined)
     assert(get(entities(1), subspace).isEmpty)
     assert(get(entities(2), subspace).isEmpty)
@@ -87,17 +87,17 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear all elements between specified keys" in {
     val entities = List(
       entity,
-      entity.copy(ofUserId = "02"),
+      entity.copy(ofUserId = 2L),
       entity.copy(addedAt = Instant.parse("2018-06-03T10:15:30.00Z")),
       entity.copy(addedAt = Instant.parse("2018-07-13T11:15:30.00Z")),
       entity.copy(addedAt = Instant.parse("2018-10-13T11:15:30.00Z")),
-      entity.copy(ofUserId = "1")
+      entity.copy(ofUserId = 1L)
     )
     addElements(entities.map(entityToTuples), subspace)
-    val from = FriendKey(ofUserId = "01", addedAt = Instant.parse("2018-06-03T10:15:30.00Z"))
-    val to = FriendKey(ofUserId = "01", addedAt = Instant.parse("2018-08-03T10:15:30.00Z"))
+    val from = FriendKey(ofUserId = 1L, addedAt = Instant.parse("2018-06-03T10:15:30.00Z"))
+    val to = FriendKey(ofUserId = 1L, addedAt = Instant.parse("2018-08-03T10:15:30.00Z"))
     val dbio = typedSubspace.clear(from, to)
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     assert(get(entity, subspace).isDefined)
     assert(get(entities(1), subspace).isDefined)
     assert(get(entities(2), subspace).isEmpty)
@@ -108,53 +108,53 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   it should "return option empty for get operation if provided key does no exist" in {
     val dbio = typedSubspace.get(entityKey)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res === Option.empty[FriendEntity])
   }
 
   it should "return entity for get operation if entity for provided key exists" in {
     addElement(key, value, subspace)
     val dbio = typedSubspace.get(entityKey)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res === Some(entity))
   }
 
   it should "return limited number of elements for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
-    val from = FriendKey("", Instant.parse("2007-12-03T10:15:30.00Z"))
-    val to = FriendKey("zzzzzzzzzzz", Instant.parse("2027-12-03T10:15:30.00Z"))
+    val from = FriendKey(0L, Instant.parse("2007-12-03T10:15:30.00Z"))
+    val to = FriendKey(Long.MaxValue, Instant.parse("2027-12-03T10:15:30.00Z"))
     val dbio = typedSubspace.getRange(from, to)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 50)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 150L).toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "return elements within provided range for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
-    val range = subspace.range(Tuple.from("01"))
+    val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 100)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 200L).toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "return elements within provided range and specified limit for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
-    val range = subspace.range(Tuple.from("01"))
+    val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range, 30)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 30)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 130L).toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
@@ -162,68 +162,68 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "return elements within provided range,specified limit and reverse flag for getRange operation" in {
     val reverse = true
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
-    val range = subspace.range(Tuple.from("01"))
+    val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range, 40, reverse)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 40)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (161L to 200L).reverse.toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "return elements within specified keySelectors for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
     val (beginKey, _) = entityToTuples(entities(59))
     val (endKey, _) = entityToTuples(entities(79))
     val from = KeySelector.firstGreaterOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey))
     val dbio = typedSubspace.getRange(from, to)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 20)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (160L to 179L).toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "return elements within specified keySelectors and with specified limit for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
     val (beginKey, _) = entityToTuples(entities(59))
     val (endKey, _) = entityToTuples(entities(79))
     val from = KeySelector.firstGreaterOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey))
     val dbio = typedSubspace.getRange(from, to, 10)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 10)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (160L to 169L).toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "return elements within specified keySelectors and with specified limit and reverse flag for getRange operation" in {
     val entities = (101L to 200L)
-      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i.toString))
+      .map(i => entity.copy(addedAt = entity.addedAt.plusSeconds(i), friendId = i))
     addElements(entities.map(entityToTuples), subspace)
     val (beginKey, _) = entityToTuples(entities(59))
     val (endKey, _) = entityToTuples(entities(79))
     val from = KeySelector.lastLessOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey)).add(1)
     val dbio = typedSubspace.getRange(from, to, 10, reverse = true)
-    val res = await(dbio.transact(testTransactor))
+    val res = dbio.transact(testTransactor).await
     assert(res.size === 10)
-    val obtainedFriendIds = res.map(x => x.friendId.toLong).toList
+    val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (171L to 180L).reverse.toList
     assert(obtainedFriendIds === expectedFriendIds)
   }
 
   it should "insert value if it doesn't exist" in {
     val dbio = typedSubspace.set(entity)
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     assert(get(key, subspace) === Some(value))
   }
 
@@ -231,8 +231,8 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     addElement(key, value, subspace)
     val entity = spec.entity.copy(friendName = "New friend")
     val dbio = typedSubspace.set(entity)
-    await(dbio.transact(testTransactor))
-    assert(get(key, subspace) === Some(Tuple.from(entity.friendId, "New friend")))
+    dbio.transact(testTransactor).await
+    assert(get(key, subspace) === Some(new Tuple().add(entity.friendId).add("New friend")))
   }
 
   it should "create correct range" in {
@@ -319,8 +319,8 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   }
 
   private def entityToTuples(entity: FriendEntity): (Tuple, Tuple) = {
-    val k = Tuple.from(entity.ofUserId).add(entity.addedAt.toEpochMilli)
-    val v = Tuple.from(entity.friendId, entity.friendName)
+    val k = new Tuple().add(entity.ofUserId).add(entity.addedAt.toEpochMilli)
+    val v = new Tuple().add(entity.friendId).add(entity.friendName)
     k -> v
   }
 

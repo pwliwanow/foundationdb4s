@@ -1,4 +1,5 @@
 package com.github.pwliwanow.foundationdb4s.core
+
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb._
 
@@ -6,12 +7,16 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 /** RefreshingSubspaceStream does not guarantee to produce all data within a single transaction.
+  *
   * It can be useful when data within a subspace is immutable and append-only,
   * or if approximation is good enough.
+  *
+  * User of this interface must take care of synchronization.
   */
 trait RefreshingSubspaceStream[A] {
   def onHasNext(): Future[Boolean]
   def next(): A
+  def resume(): Unit
   def close(): Unit
 }
 
@@ -93,6 +98,7 @@ private final class TypedSubspaceStream[Entity, KeyRepr](
     extends RefreshingSubspaceStream[Entity] {
   override def onHasNext(): Future[Boolean] = underlying.onHasNext()
   override def next(): Entity = typedSubspace.toEntity(underlying.next())
+  override def resume(): Unit = underlying.resume()
   override def close(): Unit = underlying.close()
 }
 
@@ -137,6 +143,10 @@ private final class SubspaceStream(
     lastKey = Some(kv.getKey)
     numberOfRestartsWithoutProgress = 0
     kv
+  }
+
+  override def resume(): Unit = {
+    asyncIterator = resumedIterator()
   }
 
   override def close(): Unit = {

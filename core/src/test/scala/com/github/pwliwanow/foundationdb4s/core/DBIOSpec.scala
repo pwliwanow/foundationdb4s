@@ -87,7 +87,7 @@ class DBIOSpec extends FoundationDbSpec {
       }
       _ <- DBIO.pure[Unit](())
     } yield ()
-    await(dbio.transact(testTransactor))
+    dbio.transact(testTransactor).await
     val valueFromDb: Array[Byte] = testTransactor.db.runAsync(tx => tx.get(key)).get()
     assert(Tuple.fromBytes(valueFromDb).getString(0) === "value")
   }
@@ -99,7 +99,7 @@ class DBIOSpec extends FoundationDbSpec {
       _ <- DBIO { case (tx, _)     => Future.fromTry(Try(tx.set(key, value))) }
       bytes <- DBIO { case (tx, _) => tx.get(key).toScala }
     } yield Tuple.fromBytes(bytes).getString(0)
-    val valueFromTx = await(dbioValue.transact(testTransactor))
+    val valueFromTx = dbioValue.transact(testTransactor).await
     assert(valueFromTx === "value")
   }
 
@@ -113,7 +113,7 @@ class DBIOSpec extends FoundationDbSpec {
       }
       _ <- DBIO.failed[Unit](TestError("Failure"))
     } yield ()
-    val tryResult = Try(await(failedDbio.transact(testTransactor)))
+    val tryResult = Try(failedDbio.transact(testTransactor).await)
     val value: Array[Byte] = testTransactor.db.runAsync(tx => tx.get(key)).get()
 
     assert(tryResult === Failure(error))
@@ -130,7 +130,7 @@ class DBIOSpec extends FoundationDbSpec {
         }
       }
       val (_, Some(versionstamp)) =
-        await(modifyDbio.transactVersionstamped(testTransactor, userVersion))
+        modifyDbio.transactVersionstamped(testTransactor, userVersion).await
       val expected = testTransactor.db.run { tx =>
         val serialized = tx.getRange(subspace.range(Tuple.from("testKey")), 1).iterator.next.getKey
         val tuple = subspace.unpack(serialized)
@@ -143,7 +143,7 @@ class DBIOSpec extends FoundationDbSpec {
   it should "not fail when transactVersiontamped is called and DBIO does not modify database" in {
     val value = "This dbio does not modify any data"
     val dbio = DBIO.pure(value)
-    val result = Try(await(dbio.transactVersionstamped(testTransactor))).map { case (v, _) => v }
+    val result = Try(dbio.transactVersionstamped(testTransactor).await).map { case (v, _) => v }
     assert(result === Success(value))
   }
 
