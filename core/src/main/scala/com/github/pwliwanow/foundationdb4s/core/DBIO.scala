@@ -1,13 +1,13 @@
 package com.github.pwliwanow.foundationdb4s.core
 
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.{CompletableFuture, CompletionException}
 
 import cats.{Monad, StackSafeMonad}
 import com.apple.foundationdb.Transaction
 import com.apple.foundationdb.tuple.Versionstamp
 
-import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 
 final case class DBIO[+A](
     private[foundationdb4s] val run: (Transaction, ExecutionContextExecutor) => Future[A]) {
@@ -68,12 +68,16 @@ final case class DBIO[+A](
               }
               .recover { case _ => None }
           promisedVersionstamp.completeWith(futureMaybeVersionstamp)
-          run(tx, transactor.ec).toJava.asInstanceOf[CompletableFuture[A]]
-        },
-        transactor.ec
+          run(tx, ec).toJava.asInstanceOf[CompletableFuture[A]]
+        }
       )
       .toScala
-    futureRes.zip(promisedVersionstamp.future)
+    futureRes
+      .zip(promisedVersionstamp.future)
+      .recoverWith {
+        case e: CompletionException if e.getCause != null =>
+          Future.failed(e.getCause)
+      }
   }
 }
 
