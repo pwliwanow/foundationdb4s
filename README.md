@@ -137,7 +137,7 @@ val updateDbio = eventsSubspace.set(updatedEvent)
 updateDbio.transact(transactor)
 ``` 
 
-## Continuous stream of data
+## Reading large amount of data
 If you want to stream data from a subspace, it can take longer than FoundationDb transaction time limit,
 and your data is immutable and append only, or if approximation is good enough for your use case, 
 you can use either use `SubspaceSource` (from akka-streams module) 
@@ -171,7 +171,7 @@ val source = Source[Entity, _] =
     transactor, 
     pollingInterval = 100.millis, 
     begin = KeySelector.firstGreaterThan(lastSeenKey))
-source.via(processEntityFlow).to(commitOffsetFlow).run()
+source.via(processEntityFlow).to(commitOffsetSink).run()
 ```
 
 ## Example - class scheduling
