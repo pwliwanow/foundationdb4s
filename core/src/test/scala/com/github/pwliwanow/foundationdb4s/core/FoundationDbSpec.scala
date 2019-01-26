@@ -3,7 +3,7 @@ package com.github.pwliwanow.foundationdb4s.core
 import java.time.Instant
 
 import cats.laws.IsEq
-import com.apple.foundationdb.KeySelector
+import com.apple.foundationdb.{Database, FDB, KeySelector}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 import org.scalactic.Equality
@@ -17,10 +17,10 @@ import scala.util.{Failure, Try}
 trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
   spec =>
 
-  implicit def ec: ExecutionContextExecutor = TransactorHolder.transactor.ec
+  implicit def ec: ExecutionContextExecutor = DatabaseHolder.ec
   val subspace = new Subspace(Tuple.from("foundationDbTestSubspace"))
 
-  lazy val testTransactor = TransactorHolder.transactor
+  lazy val database = DatabaseHolder.database
 
   protected val typedSubspace = new TypedSubspace[FriendEntity, FriendKey] {
     override val subspace: Subspace = spec.subspace
@@ -51,15 +51,15 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
   }
 
   override def afterEach(): Unit = {
-    testTransactor.db.run(_.clear(subspace.range()))
+    database.run(_.clear(subspace.range()))
   }
 
   def assertDbioEq[A](isEqDbio: IsEq[DBIO[A]]): Assertion = {
-    assertEq[A, DBIO](isEqDbio, _.transact(testTransactor))
+    assertEq[A, DBIO](isEqDbio, _.transact(database))
   }
 
   def assertReadDbioEq[A](isEqReadDbio: IsEq[ReadDBIO[A]]): Assertion = {
-    assertEq[A, ReadDBIO](isEqReadDbio, _.transact(testTransactor))
+    assertEq[A, ReadDBIO](isEqReadDbio, _.transact(database))
   }
 
   implicit class FutureHolder[A](future: Future[A]) {
@@ -99,8 +99,8 @@ final case class FriendKey(ofUserId: Long, addedAt: Instant)
 
 final case class TestError(msg: String) extends RuntimeException
 
-object TransactorHolder {
-  private implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val transactor = Transactor(version = 600)
-  sys.addShutdownHook(transactor.close())
+object DatabaseHolder {
+  implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+  val database: Database = FDB.selectAPIVersion(600).open(null, ec)
+  sys.addShutdownHook(database.close())
 }

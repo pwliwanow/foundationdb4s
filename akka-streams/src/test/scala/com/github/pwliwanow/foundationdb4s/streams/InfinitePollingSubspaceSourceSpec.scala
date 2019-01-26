@@ -24,7 +24,7 @@ class InfinitePollingSubspaceSourceSpec extends FoundationDbStreamsSpec {
     val numberOfElements = 100
     val (firstHalf, secondHalf) =
       (1 to numberOfElements).map(entityFromInt).toList.splitAt(numberOfElements / 2)
-    val source = InfinitePollingSubspaceSource.from(typedSubspace, testTransactor, 50.millis)
+    val source = InfinitePollingSubspaceSource.from(typedSubspace, database, 50.millis)
     insert(firstHalf)
     val futureResult = source.take(numberOfElements.toLong).runWith(Sink.seq)
     // wait for stream to initialize and stream first part
@@ -35,7 +35,7 @@ class InfinitePollingSubspaceSourceSpec extends FoundationDbStreamsSpec {
   }
 
   private def insert(xs: List[FriendEntity]): Unit = {
-    xs.traverse(typedSubspace.set).transact(testTransactor).await
+    xs.traverse(typedSubspace.set).transact(database).await
     ()
   }
 

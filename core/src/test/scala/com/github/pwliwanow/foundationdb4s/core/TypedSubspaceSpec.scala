@@ -22,7 +22,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   override def afterEach(): Unit = {
     super.afterEach()
-    testTransactor.db.run(tx => allSubspaces.map(_.range()).foreach(tx.clear))
+    database.run(tx => allSubspaces.map(_.range()).foreach(tx.clear))
   }
 
   it should "properly calculate subspace key" in {
@@ -40,7 +40,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear the entire subspace" in {
     allSubspaces.foreach(s => addElement(key, value, s))
     val dbio = typedSubspace.clear()
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isEmpty)
@@ -49,7 +49,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "clear key" in {
     allSubspaces.foreach(s => addElement(key, value, s))
     val dbio = typedSubspace.clear(entityKey)
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isEmpty)
@@ -58,7 +58,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "not clear anything if provided key does not exist in db" in {
     allSubspaces.foreach(s => addElement(key, value, s))
     val dbio = typedSubspace.clear(entityKey.copy(ofUserId = 2L))
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(key, earlierSubspace).isDefined)
     assert(get(key, laterSubspace).isDefined)
     assert(get(key, subspace).isDefined)
@@ -75,7 +75,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     )
     addElements(entities.map(entityToTuples), subspace)
     val dbio = typedSubspace.clear(typedSubspace.range(new Tuple().add(2L)))
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(entity, subspace).isDefined)
     assert(get(entities(1), subspace).isEmpty)
     assert(get(entities(2), subspace).isEmpty)
@@ -97,7 +97,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val from = FriendKey(ofUserId = 1L, addedAt = Instant.parse("2018-06-03T10:15:30.00Z"))
     val to = FriendKey(ofUserId = 1L, addedAt = Instant.parse("2018-08-03T10:15:30.00Z"))
     val dbio = typedSubspace.clear(from, to)
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(entity, subspace).isDefined)
     assert(get(entities(1), subspace).isDefined)
     assert(get(entities(2), subspace).isEmpty)
@@ -108,14 +108,14 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   it should "return option empty for get operation if provided key does no exist" in {
     val dbio = typedSubspace.get(entityKey)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res === Option.empty[FriendEntity])
   }
 
   it should "return entity for get operation if entity for provided key exists" in {
     addElement(key, value, subspace)
     val dbio = typedSubspace.get(entityKey)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res === Some(entity))
   }
 
@@ -126,7 +126,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val from = FriendKey(0L, Instant.parse("2007-12-03T10:15:30.00Z"))
     val to = FriendKey(Long.MaxValue, Instant.parse("2027-12-03T10:15:30.00Z"))
     val dbio = typedSubspace.getRange(from, to)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 50)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 150L).toList
@@ -139,7 +139,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     addElements(entities.map(entityToTuples), subspace)
     val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 100)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 200L).toList
@@ -152,7 +152,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     addElements(entities.map(entityToTuples), subspace)
     val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range, 30)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 30)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (101L to 130L).toList
@@ -166,7 +166,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     addElements(entities.map(entityToTuples), subspace)
     val range = subspace.range(new Tuple().add(1L))
     val dbio = typedSubspace.getRange(range, 40, reverse)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 40)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (161L to 200L).reverse.toList
@@ -182,7 +182,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val from = KeySelector.firstGreaterOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey))
     val dbio = typedSubspace.getRange(from, to)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 20)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (160L to 179L).toList
@@ -198,7 +198,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val from = KeySelector.firstGreaterOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey))
     val dbio = typedSubspace.getRange(from, to, 10)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 10)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (160L to 169L).toList
@@ -214,7 +214,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val from = KeySelector.lastLessOrEqual(subspace.pack(beginKey))
     val to = KeySelector.firstGreaterOrEqual(subspace.pack(endKey)).add(1)
     val dbio = typedSubspace.getRange(from, to, 10, reverse = true)
-    val res = dbio.transact(testTransactor).await
+    val res = dbio.transact(database).await
     assert(res.size === 10)
     val obtainedFriendIds = res.map(_.friendId).toList
     val expectedFriendIds = (171L to 180L).reverse.toList
@@ -223,7 +223,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   it should "insert value if it doesn't exist" in {
     val dbio = typedSubspace.set(entity)
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(key, subspace) === Some(value))
   }
 
@@ -231,7 +231,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     addElement(key, value, subspace)
     val entity = spec.entity.copy(friendName = "New friend")
     val dbio = typedSubspace.set(entity)
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     assert(get(key, subspace) === Some(new Tuple().add(entity.friendId).add("New friend")))
   }
 
@@ -301,7 +301,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   }
 
   private def addElements(kvs: Seq[(Tuple, Tuple)], to: Subspace): Unit = {
-    testTransactor.db.run { tx =>
+    database.run { tx =>
       kvs.foreach {
         case (k, v) =>
           tx.set(to.pack(k), v.pack)
@@ -315,7 +315,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   }
 
   private def get(key: Tuple, from: Subspace): Option[Tuple] = {
-    Option(testTransactor.db.runAsync(tx => tx.get(from.pack(key))).get).map(Tuple.fromBytes)
+    Option(database.runAsync(tx => tx.get(from.pack(key))).get).map(Tuple.fromBytes)
   }
 
   private def entityToTuples(entity: FriendEntity): (Tuple, Tuple) = {

@@ -27,8 +27,8 @@ class SubspaceWithVersionstampedKeysSpec extends FoundationDbSpec { spec =>
       val event = Event(Versionstamp.incomplete(userVersion), value)
       val setDbio = eventSubspace.set(event)
       val (_, Some(versionstamp)) =
-        setDbio.transactVersionstamped(testTransactor, userVersion).await
-      val futureResult = eventSubspace.get(versionstamp).transact(testTransactor)
+        setDbio.transactVersionstamped(database, userVersion).await
+      val futureResult = eventSubspace.get(versionstamp).transact(database)
       assert(futureResult.await === Some(Event(versionstamp, value)))
     }
   }
@@ -39,8 +39,8 @@ class SubspaceWithVersionstampedKeysSpec extends FoundationDbSpec { spec =>
       val versionstamp = Versionstamp.complete(Array.fill[Byte](10)(0x0: Byte), userVersion)
       val event = Event(versionstamp, value)
       val setDbio = eventSubspace.set(event)
-      setDbio.transact(testTransactor).await
-      val futureResult = eventSubspace.get(versionstamp).transact(testTransactor)
+      setDbio.transact(database).await
+      val futureResult = eventSubspace.get(versionstamp).transact(database)
       assert(futureResult.await === Some(Event(versionstamp, value)))
     }
   }

@@ -1,12 +1,12 @@
 package com.github.pwliwanow.foundationdb4s.core
 
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 
 import cats.{Monad, StackSafeMonad}
-import com.apple.foundationdb.ReadTransaction
+import com.apple.foundationdb.{ReadTransaction, ReadTransactionContext}
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 final case class ReadDBIO[+A](
     private[foundationdb4s] val run: (ReadTransaction, ExecutionContextExecutor) => Future[A]) {
@@ -22,12 +22,15 @@ final case class ReadDBIO[+A](
 
   def flatMap[B](f: A => DBIO[B]): DBIO[B] = ReadDBIO.toDBIO(this).flatMap(f)
 
-  def transact(transactor: Transactor): Future[A] = {
-    transactor.db
-      .readAsync(
-        tx => run(tx, transactor.ec).toJava.asInstanceOf[CompletableFuture[A]],
-        transactor.ec)
+  def transact(readContext: ReadTransactionContext)(
+      implicit ec: ExecutionContextExecutor): Future[A] = {
+    readContext
+      .readAsync(tx => run(tx, ec).toJava.toCompletableFuture)
       .toScala
+      .recoverWith {
+        case e: CompletionException if e.getCause != null =>
+          Future.failed(e.getCause)
+      }
   }
 }
 

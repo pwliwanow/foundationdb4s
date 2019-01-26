@@ -5,11 +5,9 @@ import akka.stream.scaladsl.Source
 import akka.stream.stage.{GraphStage, GraphStageLogic}
 import akka.stream.{Attributes, Outlet, SourceShape}
 import com.apple.foundationdb._
-import com.github.pwliwanow.foundationdb4s.core.{
-  RefreshingSubspaceStream,
-  Transactor,
-  TypedSubspace
-}
+import com.github.pwliwanow.foundationdb4s.core.{RefreshingSubspaceStream, TypedSubspace}
+
+import scala.concurrent.ExecutionContextExecutor
 
 /** Factories to create sources from provided subspace.
   *
@@ -27,40 +25,43 @@ object SubspaceSource {
 
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor): Source[Entity, NotUsed] = {
-    val createStream = () => RefreshingSubspaceStream.fromTypedSubspace(subspace, transactor)
+      database: Database): Source[Entity, NotUsed] = {
+    val createStream = (ec: ExecutionContextExecutor) =>
+      RefreshingSubspaceStream.fromTypedSubspace(subspace, database)(ec)
     Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor,
+      database: Database,
       begin: KeySelector): Source[Entity, NotUsed] = {
-    val createStream = () => RefreshingSubspaceStream.fromTypedSubspace(subspace, transactor, begin)
+    val createStream = (ec: ExecutionContextExecutor) =>
+      RefreshingSubspaceStream.fromTypedSubspace(subspace, database, begin)(ec)
     Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor,
+      database: Database,
       begin: KeySelector,
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM): Source[Entity, NotUsed] = {
-    val createStream = () =>
+    val createStream = (ec: ExecutionContextExecutor) =>
       RefreshingSubspaceStream.fromTypedSubspace(
         subspace,
-        transactor,
+        database,
         begin,
         end,
         reverse,
         streamingMode,
-        MaxAllowedNumberOfRestartsWithoutProgress)
+        MaxAllowedNumberOfRestartsWithoutProgress)(ec)
     Source.fromGraph(new SubspaceSource[Entity](createStream))
   }
 }
 
-private final class SubspaceSource[Entity](createStream: () => RefreshingSubspaceStream[Entity])
+private final class SubspaceSource[Entity](
+    createStream: ExecutionContextExecutor => RefreshingSubspaceStream[Entity])
     extends GraphStage[SourceShape[Entity]] {
 
   private val out: Outlet[Entity] = Outlet("SubspaceSource.out")

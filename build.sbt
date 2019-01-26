@@ -54,7 +54,7 @@ lazy val commonSettings = buildSettings ++ Seq(
     releaseStepCommandAndRemaining("+publishSigned"),
     setNextVersion,
     commitNextVersion,
-    releaseStepCommand("sonatypeReleaseAll"),
+    releaseStepCommand("sonatypeRelease"),
     pushChanges
   ),
   parallelExecution in ThisBuild := false,

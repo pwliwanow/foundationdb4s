@@ -4,9 +4,10 @@ import java.nio.ByteBuffer
 
 import cats.instances.list._
 import cats.syntax.traverse._
+import com.apple.foundationdb.{Database, FDB}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
-import com.github.pwliwanow.foundationdb4s.core.{DBIO, ReadDBIO, Transactor, TypedSubspace}
+import com.github.pwliwanow.foundationdb4s.core.{DBIO, ReadDBIO, TypedSubspace}
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
@@ -16,7 +17,7 @@ import scala.util.Random
 
 object ClassScheduling {
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val transactor = Transactor(version = 600)
+  val database: Database = FDB.selectAPIVersion(600).open(null, executor)
 
   final case class Attendance(student: String, `class`: Class)
   final case class ClassAvailability(`class`: Class, seatsAvailable: Int)
@@ -24,7 +25,7 @@ object ClassScheduling {
 
   val attendanceSubspace: TypedSubspace[Attendance, Attendance] =
     new TypedSubspace[Attendance, Attendance] {
-      override val subspace: Subspace = transactor.createOrOpen("class-scheduling", "attendence")
+      override val subspace: Subspace = new Subspace(Tuple.from("class-scheduling", "attendence"))
       override def toKey(entity: Attendance): Attendance = entity
       override def toTupledKey(key: Attendance): Tuple = {
         Tuple.from(key.student, key.`class`.time, key.`class`.`type`, key.`class`.level)
@@ -43,7 +44,7 @@ object ClassScheduling {
 
   val classAvailabilitySubspace: TypedSubspace[ClassAvailability, Class] =
     new TypedSubspace[ClassAvailability, Class] {
-      override val subspace: Subspace = transactor.createOrOpen("class-scheduling", "class")
+      override val subspace: Subspace = new Subspace(Tuple.from("class-scheduling", "class"))
       override def toKey(entity: ClassAvailability): Class = entity.`class`
       override def toTupledKey(key: Class): Tuple =
         Tuple.from(key.time, key.`type`, key.level)
@@ -78,7 +79,7 @@ object ClassScheduling {
       _ <- classAvailabilitySubspace.clear()
       _ <- classAvailabilities.map(classAvailabilitySubspace.set).sequence
     } yield ()
-    dbio.transact(transactor)
+    dbio.transact(database)
   }
 
   def availableClasses: ReadDBIO[Seq[ClassAvailability]] = {
@@ -164,7 +165,7 @@ object ClassScheduling {
     val txPerSec = numberOfTxs / (timeInMs / 1000)
     println(
       s"Ran $numberOfTxs transactions in ${timeInMs}ms. Throughput: $txPerSec transactions per second.")
-    transactor.close()
+    database.close()
   }
 
   private def measure[A](f: => A): (A, Long) = {
@@ -202,25 +203,25 @@ object ClassScheduling {
       val mood = moods(rand.nextInt(moods.size))
       val f: Future[Unit] = for {
         _ <- if (allClasses.isEmpty)
-          availableClasses.transact(transactor).map(xs => allClasses = xs)
+          availableClasses.transact(database).map(xs => allClasses = xs)
         else Future.successful(())
         _ <- mood match {
           case Add =>
             val c = allClasses(rand.nextInt(allClasses.size))
             signup(studentID, c.`class`)
-              .transact(transactor)
+              .transact(database)
               .map(_ => myClasses += c)
           case Drop =>
             val index = rand.nextInt(myClasses.size)
             val c = myClasses(index)
-            drop(studentID, c.`class`).transact(transactor).map(_ => myClasses.remove(index))
+            drop(studentID, c.`class`).transact(database).map(_ => myClasses.remove(index))
           case Switch =>
             val oldCIndex = rand.nextInt(myClasses.size)
             val newCIndex = rand.nextInt(allClasses.size)
             val oldC = myClasses(oldCIndex)
             val newC = allClasses(newCIndex)
             switchClasses(studentID, oldC.`class`, newC.`class`)
-              .transact(transactor)
+              .transact(database)
               .map { _ =>
                 myClasses.remove(oldCIndex)
                 myClasses += newC

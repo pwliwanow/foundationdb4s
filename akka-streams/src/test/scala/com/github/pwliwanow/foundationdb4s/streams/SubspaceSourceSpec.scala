@@ -27,7 +27,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
   it should "stream data from whole underlying RefreshingSubspaceStream" in {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
     val (stream, noTimesCloseCalled) = refreshingStream(xs)
-    val res = Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.seq).awaitInf.toList
+    val res = Source.fromGraph(new SubspaceSource(_ => stream)).runWith(Sink.seq).awaitInf.toList
     assert(res === xs)
     assert(noTimesCloseCalled.get() === 1)
   }
@@ -36,7 +36,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
     val xs = (1 to 100).iterator.map(entityFromInt).toList
     val (stream, noTimesCloseCalled) =
       refreshingStream(xs, () => Future.failed(new RuntimeException("Error occurred")))
-    val res = Try(Source.fromGraph(new SubspaceSource(() => stream)).runWith(Sink.ignore).awaitInf)
+    val res = Try(Source.fromGraph(new SubspaceSource(_ => stream)).runWith(Sink.ignore).awaitInf)
     assert(res.isFailure)
     assert(res.asInstanceOf[Failure[_]].exception.getMessage === "Error occurred")
     assert(noTimesCloseCalled.get() === 1)
@@ -51,7 +51,7 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
     val (stream, noTimesCloseCalled) = refreshingStream(xs, getElem = getElem)
     val res =
       Source
-        .fromGraph(new SubspaceSource(() => stream))
+        .fromGraph(new SubspaceSource(_ => stream))
         .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
         .runWith(Sink.fold(ListBuffer.empty[FriendEntity])(_ += _))
         .awaitInf
