@@ -97,11 +97,11 @@ class ReadDBIOSpec extends FoundationDbSpec {
     import scala.compat.java8.FutureConverters._
     val key = subspace.pack(Tuple.from("testKey"))
     val value = Tuple.from("value").pack
-    testTransactor.db.run(tx => tx.set(key, value))
+    database.run(tx => tx.set(key, value))
     val readDbio = ReadDBIO { case (tx, _) => tx.get(key).toScala }
-    val _ = readDbio.transact(testTransactor).await
+    val _ = readDbio.transact(database).await
     val result = {
-      val byteArray = readDbio.transact(testTransactor).await
+      val byteArray = readDbio.transact(database).await
       Tuple.fromBytes(byteArray).getString(0)
     }
     assert(result === "value")

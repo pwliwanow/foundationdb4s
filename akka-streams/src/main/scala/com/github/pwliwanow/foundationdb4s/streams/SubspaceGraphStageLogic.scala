@@ -5,13 +5,14 @@ import akka.stream.{Attributes, Outlet, Shape, Supervision}
 import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
 import com.github.pwliwanow.foundationdb4s.core.RefreshingSubspaceStream
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.Try
 
 private[streams] abstract class SubspaceGraphStageLogic[Entity](
     shape: Shape,
     out: Outlet[Entity],
     inheritedAttributes: Attributes,
-    createStream: () => RefreshingSubspaceStream[Entity])
+    createStream: ExecutionContextExecutor => RefreshingSubspaceStream[Entity])
     extends GraphStageLogic(shape) { stage =>
 
   protected def endReached(): Unit
@@ -24,7 +25,7 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
 
   private var underlyingStream: RefreshingSubspaceStream[Entity] = _
 
-  override def preStart(): Unit = underlyingStream = createStream()
+  override def preStart(): Unit = underlyingStream = createStream(materializer.executionContext)
 
   override def postStop(): Unit = underlyingStream.close()
 

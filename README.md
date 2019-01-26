@@ -9,7 +9,7 @@ It aims to be type-safe and idiomatic for Scala.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val transactor = Transactor(version = 600)
+val database: Database = FDB.selectAPIVersion(600).open(null, ec)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
 
@@ -33,9 +33,7 @@ val dbio: DBIO[Option[Book]] = for {
   maybeBook <- booksSubspace.get("978-0451205766")
 } yield maybeBook
 
-val maybeBook: Future[Option[Book]] = dbio.transact(transactor)
-
-// to close transactor when application finishes: transactor.close()
+val maybeBook: Future[Option[Book]] = dbio.transact(database)
 ```
 
 The library is still incomplete and does not cover everything official client does.
@@ -100,7 +98,7 @@ Note that if the given `DBIO` did not modify the database, returned `Versionstam
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val transactor = Transactor(version = 600)
+val database: Database = FDB.selectAPIVersion(600).open(null, ec)
 
 case class EventKey(eventType: String, versionstamp: Versionstamp)
 case class Event(key: EventKey, content: Array[Byte])
@@ -126,7 +124,7 @@ val setDbio: DBIO[Unit] = eventsSubspace.set(event)
 val completedVersionstamp: Versionstamp = 
   Await.result(
     setDbio
-      .transactVersionstamped(transactor, userVersion = 0)
+      .transactVersionstamped(database, userVersion = 0)
       .map { case (_, Some(versionstamp)) => versionstamp },
     Duration.Inf)
 
@@ -134,7 +132,7 @@ val completedVersionstamp: Versionstamp =
 val updatedEvent = event.copy(key = event.key.copy(versionstamp = completedVersionstamp))
 val updateDbio = eventsSubspace.set(updatedEvent)
 
-updateDbio.transact(transactor)
+updateDbio.transact(database)
 ``` 
 
 ## Reading large amount of data
@@ -146,9 +144,9 @@ or you can use `RefreshingSubspaceStream` (from core module).
 Advantage of using `SubspaceSource` is that it closes resources automatically and 
 exposes easier to use API leveraging Akka Streams.
 
-To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and `transactor: Transactor`: 
+To create a source you need at least `subspace: TypedSubspace[Entity, Key]` and `database: Database`: 
 ```scala
-val source: Source[Entity, _] = SubspaceSource.from(subspace, transactor)
+val source: Source[Entity, _] = SubspaceSource.from(subspace, database)
 ```
 
 However, if you don't want to add Akka as a dependency or you need more control over streaming the data 
@@ -168,7 +166,7 @@ val lastSeenKey: Array[Byte] = fetchLastSeenKey()
 val source = Source[Entity, _] = 
   InfinitePollingSubspaceSource.from(
     typedSubspace, 
-    transactor, 
+    database, 
     pollingInterval = 100.millis, 
     begin = KeySelector.firstGreaterThan(lastSeenKey))
 source.via(processEntityFlow).to(commitOffsetSink).run()

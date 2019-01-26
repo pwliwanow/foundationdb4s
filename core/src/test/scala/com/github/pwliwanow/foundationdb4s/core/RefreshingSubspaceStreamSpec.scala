@@ -3,10 +3,9 @@ import java.time.Instant
 import java.util.concurrent.{CompletableFuture, Executor}
 import java.{lang, util}
 
-import com.apple.foundationdb.async.AsyncIterable
 import com.apple.foundationdb._
+import com.apple.foundationdb.async.{AsyncIterable, AsyncIterator => FdbAsyncIterator}
 import com.apple.foundationdb.subspace.Subspace
-import com.apple.foundationdb.async.{AsyncIterator => FdbAsyncIterator}
 import com.apple.foundationdb.tuple.Tuple
 import com.github.pwliwanow.foundationdb4s.core.RefreshingSubspaceStream.TooManyFailsException
 import org.scalamock.scalatest.MockFactory
@@ -14,9 +13,9 @@ import org.scalatest.BeforeAndAfterAll
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
-import scala.concurrent.duration._
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.duration._
+import scala.concurrent.{Future, blocking}
 import scala.util.{Failure, Try}
 
 class RefreshingSubspaceStreamSpec
@@ -37,7 +36,7 @@ class RefreshingSubspaceStreamSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    testTransactor.db.run { tx =>
+    database.run { tx =>
       val key = Tuple.from("01", "something").pack
       val value = Tuple.from("some value").pack
       tx.set(earlierSubspace.pack(key), value)
@@ -47,7 +46,7 @@ class RefreshingSubspaceStreamSpec
 
   override def afterAll(): Unit = {
     super.afterAll()
-    testTransactor.db.run { tx =>
+    database.run { tx =>
       tx.clear(earlierSubspace.range())
       tx.clear(laterSubspace.range())
     }
@@ -58,7 +57,7 @@ class RefreshingSubspaceStreamSpec
     addElements(xs)
     val res =
       collectAllAndCloseStream(
-        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, slowedDownTransactor))
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, slowedDownDatabase))
     assert(res === xs)
   }
 
@@ -67,7 +66,7 @@ class RefreshingSubspaceStreamSpec
     val (firstHalf, secondHalf) =
       (1 to numberOfElements).iterator.map(entityFromInt).toList.splitAt(numberOfElements / 2)
     addElements(firstHalf)
-    val stream = RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, testTransactor)
+    val stream = RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, database)
     val res1 = collectAll(stream)
     assert(res1 === firstHalf)
     addElements(secondHalf)
@@ -85,7 +84,7 @@ class RefreshingSubspaceStreamSpec
     val res = collectAllAndCloseStream(
       RefreshingSubspaceStream.fromTypedSubspace(
         typedSubspace,
-        slowedDownTransactor,
+        slowedDownDatabase,
         begin = begin,
         end = end,
         reverse = true))
@@ -100,7 +99,7 @@ class RefreshingSubspaceStreamSpec
     val res = collectAllAndCloseStream(
       RefreshingSubspaceStream.fromTypedSubspace(
         typedSubspace,
-        slowedDownTransactor,
+        slowedDownDatabase,
         begin = begin,
         end = end,
         reverse = true))
@@ -132,10 +131,9 @@ class RefreshingSubspaceStreamSpec
       .returning(iterable2)
       .never()
     (iterable1.iterator _).when().returns(iterator).once()
-    val transactor = createTransactorWithStubbedDb(stubbedDb)
     val res = Try(
       collectAllAndCloseStream(
-        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
     assert(res === Failure(exception))
   }
 
@@ -154,10 +152,9 @@ class RefreshingSubspaceStreamSpec
       .returning(iterable)
       .anyNumberOfTimes()
     (iterable.iterator _).when().returns(iterator).anyNumberOfTimes()
-    val transactor = createTransactorWithStubbedDb(stubbedDb)
     val res = Try(
       collectAllAndCloseStream(
-        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, transactor)))
+        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
     assert(res.isFailure)
     assert(res.asInstanceOf[Failure[_]].exception.isInstanceOf[TooManyFailsException])
   }
@@ -165,7 +162,7 @@ class RefreshingSubspaceStreamSpec
   it should "fail if one of the keys cannot be decoded" in {
     val allEntities = (1 to 10000).iterator.map(entityFromInt).toList
     addElements(allEntities)
-    testTransactor.db.run { tx =>
+    database.run { tx =>
       val key = typedSubspace.toSubspaceKey(toKey(allEntities(5000)))
       val value = Tuple.from("some value", 1L: lang.Long).pack
       tx.set(key, value)
@@ -173,7 +170,7 @@ class RefreshingSubspaceStreamSpec
     val res =
       Try(
         collectAllAndCloseStream(
-          RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, testTransactor)))
+          RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, database)))
     assert(res.isFailure)
   }
 
@@ -231,24 +228,15 @@ class RefreshingSubspaceStreamSpec
   }
 
   private def addElements(xs: List[FriendEntity]): Unit = {
+    import DBIO._
     import cats.instances.list._
     import cats.syntax.traverse._
-    import DBIO._
     val dbio = xs.map(typedSubspace.set).sequence[DBIO, Unit]
-    dbio.transact(testTransactor).await
+    dbio.transact(database).await
     ()
   }
 
-  private def createTransactorWithStubbedDb(stubbedDb: Database): Transactor = {
-    new Transactor {
-      override val ec: ExecutionContextExecutor = testTransactor.ec
-      override def apiVersion: Int = testTransactor.apiVersion
-      override def clusterFilePath: Option[String] = testTransactor.clusterFilePath
-      override lazy val db: Database = stubbedDb
-    }
-  }
-
-  private def slowedDownTransactor: Transactor = {
+  private def slowedDownDatabase: Database = {
     val stubbedDb = stub[Database]
     val stubbedTx = stub[Transaction]
     val stubbedReadTx = mock[ReadTransaction]
@@ -258,7 +246,7 @@ class RefreshingSubspaceStreamSpec
       .when(*)
       .onCall { _: Executor =>
         if (tx != null) tx.close()
-        tx = testTransactor.db.createTransaction()
+        tx = database.createTransaction()
         stubbedTx
       }
       .anyNumberOfTimes()
@@ -273,7 +261,7 @@ class RefreshingSubspaceStreamSpec
           slowedDownIterable(realIterable)
       }
       .anyNumberOfTimes()
-    createTransactorWithStubbedDb(stubbedDb)
+    stubbedDb
   }
 
   private def slowedDownIterable[A](underlying: AsyncIterable[A]): AsyncIterable[A] = {

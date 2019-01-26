@@ -23,29 +23,32 @@ trait RefreshingSubspaceStream[A] {
 object RefreshingSubspaceStream {
   def fromTypedSubspace[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor): RefreshingSubspaceStream[Entity] = {
+      database: Database)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
-    fromTypedSubspace(subspace, transactor, begin)
+    fromTypedSubspace(subspace, database, begin)
   }
 
   def fromTypedSubspace[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor,
-      begin: KeySelector): RefreshingSubspaceStream[Entity] = {
+      database: Database,
+      begin: KeySelector)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    fromTypedSubspace(subspace, transactor, begin, end)
+    fromTypedSubspace(subspace, database, begin, end)
   }
 
   def fromTypedSubspace[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      transactor: Transactor,
+      database: Database,
       begin: KeySelector,
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM,
-      maxAllowedNumberOfRestartsWithoutProgress: Int = 3): RefreshingSubspaceStream[Entity] = {
+      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val underlying = new SubspaceStream(
-      transactor,
+      database,
       begin,
       end,
       reverse,
@@ -54,30 +57,28 @@ object RefreshingSubspaceStream {
     new TypedSubspaceStream(subspace, underlying)
   }
 
-  def fromSubspace(
-      subspace: Subspace,
-      transactor: Transactor): RefreshingSubspaceStream[KeyValue] = {
+  def fromSubspace(subspace: Subspace, database: Database)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
-    fromSubspace(subspace, transactor, begin)
+    fromSubspace(subspace, database, begin)
   }
 
-  def fromSubspace(
-      subspace: Subspace,
-      transactor: Transactor,
-      begin: KeySelector): RefreshingSubspaceStream[KeyValue] = {
+  def fromSubspace(subspace: Subspace, database: Database, begin: KeySelector)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
-    fromSubspace(transactor, begin, end)
+    fromSubspace(database, begin, end)
   }
 
   def fromSubspace(
-      transactor: Transactor,
+      database: Database,
       begin: KeySelector,
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM,
-      maxAllowedNumberOfRestartsWithoutProgress: Int = 3): RefreshingSubspaceStream[KeyValue] = {
+      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(
+      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     new SubspaceStream(
-      transactor,
+      database,
       begin,
       end,
       reverse,
@@ -103,12 +104,12 @@ private final class TypedSubspaceStream[Entity, KeyRepr](
 }
 
 private final class SubspaceStream(
-    transactor: Transactor,
+    database: Database,
     begin: KeySelector,
     end: KeySelector,
     reverse: Boolean,
     streamingMode: StreamingMode,
-    maxAllowedNumberOfRestartsWithoutProgress: Int = 3)
+    maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(implicit ec: ExecutionContextExecutor)
     extends RefreshingSubspaceStream[KeyValue] {
   import RefreshingSubspaceStream._
 
@@ -116,8 +117,6 @@ private final class SubspaceStream(
   private var tx = Option.empty[Transaction]
   private var asyncIterator: AsyncIterator[KeyValue] = resumedIterator()
   private var numberOfRestartsWithoutProgress = 0
-
-  private implicit def ec: ExecutionContextExecutor = transactor.ec
 
   override def onHasNext(): Future[Boolean] = {
     asyncIterator
@@ -157,7 +156,7 @@ private final class SubspaceStream(
   private def resumedIterator(): AsyncIterator[KeyValue] = {
     import AsyncIterator._
     closeTx()
-    val transaction = transactor.db.createTransaction(ec)
+    val transaction = database.createTransaction(ec)
     tx = Some(transaction)
     val readTx: ReadTransaction = transaction.snapshot()
     val beginSel: KeySelector = lastKey.fold(begin)(beginSelector)
