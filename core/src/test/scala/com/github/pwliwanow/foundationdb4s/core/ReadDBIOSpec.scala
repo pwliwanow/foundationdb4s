@@ -1,8 +1,14 @@
 package com.github.pwliwanow.foundationdb4s.core
 
+import java.util.concurrent.{CompletableFuture, Executor}
+import java.util.function
+
 import cats.kernel.laws.IsEq
 import cats.laws.MonadLaws
+import com.apple.foundationdb.{ReadTransaction, Transaction, TransactionContext}
 import com.apple.foundationdb.tuple.Tuple
+
+import scala.util.Try
 
 class ReadDBIOSpec extends FoundationDbSpec {
 
@@ -73,8 +79,26 @@ class ReadDBIOSpec extends FoundationDbSpec {
     assertReadDbioEq(isEq)
   }
 
-  it should "produce DBIO instance after passing DBIO to flatMap" in {
-    val lhs = ReadDBIO.pure(10).flatMap(x => DBIO.pure(x.toString))
+  it should "not fail with stack overflow for deeply nested combination of TryAction and FlatMaps" in {
+    val action = (_: ReadTransaction) => Try("some value")
+    val n = 50000
+    val deeplyNested = (1 to n).foldLeft(ReadDBIO.pure("")) { (dbio, _) =>
+      dbio.flatMap(_ => ReadDBIO.fromTransactionToTry(action))
+    }
+    deeplyNested.transact(contextWithNullTransaction)
+  }
+
+  it should "not fail with stack overflow for deeply nested combination of FutureAction and FlatMaps" in {
+    val action = (_: ReadTransaction) => CompletableFuture.supplyAsync[String](() => "some value")
+    val n = 50000
+    val deeplyNested = (1 to n).foldLeft(ReadDBIO.pure("")) { (dbio, _) =>
+      dbio.flatMap(_ => ReadDBIO.fromTransactionToPromise(action))
+    }
+    deeplyNested.transact(contextWithNullTransaction)
+  }
+
+  it should "be able to convert itself to DBIO" in {
+    val lhs = ReadDBIO.pure(10).toDBIO.flatMap(x => DBIO.pure(x.toString))
     val rhs = DBIO.pure("10")
     assertDbioEq(IsEq(lhs, rhs))
   }
@@ -87,24 +111,47 @@ class ReadDBIOSpec extends FoundationDbSpec {
         (ReadDBIO.failed[Int](TestError("Failed")), DBIO.failed[Int](TestError("Failed")))
       )
     forAll(table) { (readDbio: ReadDBIO[Int], dbio: DBIO[Int]) =>
-      val lhs = ReadDBIO.toDBIO(readDbio)
+      val lhs = readDbio.toDBIO
       val rhs = dbio
       assertDbioEq(IsEq(lhs, rhs))
     }
   }
 
   it should "be able to read values" in {
-    import scala.compat.java8.FutureConverters._
     val key = subspace.pack(Tuple.from("testKey"))
     val value = Tuple.from("value").pack
     database.run(tx => tx.set(key, value))
-    val readDbio = ReadDBIO { case (tx, _) => tx.get(key).toScala }
+    val readDbio = ReadDBIO.fromTransactionToPromise(tx => tx.get(key))
     val _ = readDbio.transact(database).await
     val result = {
       val byteArray = readDbio.transact(database).await
       Tuple.fromBytes(byteArray).getString(0)
     }
     assert(result === "value")
+  }
+
+  private def contextWithNullTransaction: TransactionContext = new TransactionContext {
+    override def run[T](retryable: function.Function[_ >: Transaction, T]): T = {
+      retryable(null)
+    }
+
+    override def runAsync[T](
+        retryable: function.Function[_ >: Transaction, _ <: CompletableFuture[T]])
+      : CompletableFuture[T] = {
+      retryable(null)
+    }
+
+    override def read[T](retryable: function.Function[_ >: ReadTransaction, T]): T = {
+      retryable(null)
+    }
+
+    override def readAsync[T](
+        retryable: function.Function[_ >: ReadTransaction, _ <: CompletableFuture[T]])
+      : CompletableFuture[T] = {
+      retryable(null)
+    }
+
+    override def getExecutor: Executor = ec
   }
 
 }

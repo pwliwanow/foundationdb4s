@@ -2,7 +2,6 @@ package com.github.pwliwanow.foundationdb4s.core
 import com.apple.foundationdb.MutationType
 import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
 
-import scala.concurrent.Future
 import scala.util.Try
 
 /** SubspaceWithVersionstampedValues provides API for interacting with TypedSubspace
@@ -27,14 +26,14 @@ trait SubspaceWithVersionstampedValues[Entity, Key] extends TypedSubspace[Entity
     toEntity(key, Tuple.fromBytes(value))
   }
 
-  override def set(entity: Entity): DBIO[Unit] = DBIO { (tx, _) =>
-    val packedKey = toSubspaceKey(toKey(entity))
-    val packedValue = toRawValue(entity)
-    val versionstamp = extractVersionstamp(entity)
-    val tryAction =
+  override def set(entity: Entity): DBIO[Unit] = {
+    DBIO.fromTransactionToTry { tx =>
+      val packedKey = toSubspaceKey(toKey(entity))
+      val packedValue = toRawValue(entity)
+      val versionstamp = extractVersionstamp(entity)
       if (versionstamp.isComplete) Try(tx.set(packedKey, packedValue))
       else Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, packedKey, packedValue))
-    Future.fromTry(tryAction)
+    }
   }
 
 }

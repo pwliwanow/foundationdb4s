@@ -1,14 +1,16 @@
 package com.github.pwliwanow.foundationdb4s.core
 
-import cats.laws.MonadLaws
-import com.apple.foundationdb.MutationType
-import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
+import java.util.concurrent.{CompletableFuture, Executor}
+import java.util.function
 
-import scala.concurrent.Future
-import scala.compat.java8.FutureConverters._
+import cats.laws.MonadLaws
+import com.apple.foundationdb._
+import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
+import org.scalamock.scalatest.MockFactory
+
 import scala.util.{Failure, Success, Try}
 
-class DBIOSpec extends FoundationDbSpec {
+class DBIOSpec extends FoundationDbSpec with MockFactory {
 
   private val monadLaws = MonadLaws[DBIO]
 
@@ -66,6 +68,7 @@ class DBIOSpec extends FoundationDbSpec {
         (DBIO.failed[Int](TestError("failed 3")), (x: Int) => x.toString),
         (DBIO.failed[Int](TestError("failed 4")), (_: Int) => throw TestError("map 4 error"))
       )
+
     forAll(table) { (x: DBIO[Int], f: Int => String) =>
       val isEq = monadLaws.mapFlatMapCoherence(x, f)
       assertDbioEq(isEq)
@@ -77,14 +80,29 @@ class DBIOSpec extends FoundationDbSpec {
     assertDbioEq(isEq)
   }
 
+  it should "not fail with stack overflow for deeply nested combination of TryAction and FlatMaps" in {
+    val action = (_: Transaction) => Try("some value")
+    val n = 50000
+    val deeplyNested = (1 to n).foldLeft(DBIO.pure("")) { (dbio, _) =>
+      dbio.flatMap(_ => DBIO.fromTransactionToTry(action))
+    }
+    deeplyNested.transact(contextWithNullTransaction)
+  }
+
+  it should "not fail with stack overflow for deeply nested combination of FutureAction and FlatMaps" in {
+    val action = (_: Transaction) => CompletableFuture.supplyAsync[String](() => "some value")
+    val n = 50000
+    val deeplyNested = (1 to n).foldLeft(DBIO.pure("")) { (dbio, _) =>
+      dbio.flatMap(_ => DBIO.fromTransactionToPromise(action))
+    }
+    deeplyNested.transact(contextWithNullTransaction)
+  }
+
   it should "commit transaction if dbio is successful" in {
     val key = subspace.pack(Tuple.from("testKey"))
     val value = Tuple.from("value").pack
     val dbio = for {
-      _ <- DBIO {
-        case (tx, _) =>
-          Future.fromTry(Try(tx.set(key, value)))
-      }
+      _ <- DBIO.fromTransactionToTry(tx => Try(tx.set(key, value)))
       _ <- DBIO.pure[Unit](())
     } yield ()
     dbio.transact(database).await
@@ -96,8 +114,8 @@ class DBIOSpec extends FoundationDbSpec {
     val key = subspace.pack(Tuple.from("testKey"))
     val value = Tuple.from("value").pack
     val dbioValue = for {
-      _ <- DBIO { case (tx, _)     => Future.fromTry(Try(tx.set(key, value))) }
-      bytes <- DBIO { case (tx, _) => tx.get(key).toScala }
+      _ <- DBIO.fromTransactionToTry(tx => Try(tx.set(key, value)))
+      bytes <- DBIO.fromTransactionToPromise(tx => tx.get(key))
     } yield Tuple.fromBytes(bytes).getString(0)
     val valueFromTx = dbioValue.transact(database).await
     assert(valueFromTx === "value")
@@ -107,10 +125,7 @@ class DBIOSpec extends FoundationDbSpec {
     val key = subspace.pack(Tuple.from("testKey"))
     val error = TestError("Failure")
     val failedDbio = for {
-      _ <- DBIO {
-        case (tx, _) =>
-          Future.fromTry(Try(tx.set(key, Tuple.from("value").pack)))
-      }
+      _ <- DBIO.fromTransactionToTry(tx => Try(tx.set(key, Tuple.from("value").pack)))
       _ <- DBIO.failed[Unit](TestError("Failure"))
     } yield ()
     val tryResult = Try(failedDbio.transact(database).await)
@@ -124,10 +139,8 @@ class DBIOSpec extends FoundationDbSpec {
     it should s"get correct versionstamp for userVersion = $userVersion" in {
       val packedTuple =
         subspace.packWithVersionstamp(Tuple.from("testKey", Versionstamp.incomplete(userVersion)))
-      val modifyDbio = DBIO { (tx, _) =>
-        Future.fromTry {
-          Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedTuple, Array.emptyByteArray))
-        }
+      val modifyDbio = DBIO.fromTransactionToTry { tx =>
+        Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedTuple, Array.emptyByteArray))
       }
       val (_, Some(versionstamp)) =
         modifyDbio.transactVersionstamped(database, userVersion).await
@@ -145,6 +158,30 @@ class DBIOSpec extends FoundationDbSpec {
     val dbio = DBIO.pure(value)
     val result = Try(dbio.transactVersionstamped(database).await).map { case (v, _) => v }
     assert(result === Success(value))
+  }
+
+  private def contextWithNullTransaction: TransactionContext = new TransactionContext {
+    override def run[T](retryable: function.Function[_ >: Transaction, T]): T = {
+      retryable(null)
+    }
+
+    override def runAsync[T](
+        retryable: function.Function[_ >: Transaction, _ <: CompletableFuture[T]])
+      : CompletableFuture[T] = {
+      retryable(null)
+    }
+
+    override def read[T](retryable: function.Function[_ >: ReadTransaction, T]): T = {
+      retryable(null)
+    }
+
+    override def readAsync[T](
+        retryable: function.Function[_ >: ReadTransaction, _ <: CompletableFuture[T]])
+      : CompletableFuture[T] = {
+      retryable(null)
+    }
+
+    override def getExecutor: Executor = ec
   }
 
 }

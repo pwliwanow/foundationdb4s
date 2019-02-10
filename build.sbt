@@ -99,7 +99,7 @@ lazy val ossPublishSettings = Seq(
   ),
   publishArtifact in Test := false,
   publishMavenStyle := true,
-  sonatypeProfileName := "com.github.pwliwanow.foundationdb4s",
+  sonatypeProfileName := "com.github.pwliwanow",
   pomIncludeRepository := { _ =>
     false
   },

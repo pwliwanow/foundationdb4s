@@ -1,14 +1,14 @@
 package com.github.pwliwanow.foundationdb4s.core
 
-import com.apple.foundationdb.{KeySelector, KeyValue, Range}
+import java.util.concurrent.CompletableFuture
+
 import com.apple.foundationdb.async.AsyncIterable
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
+import com.apple.foundationdb.{KeySelector, KeyValue, Range}
 
 import scala.collection.convert.ImplicitConversions._
-import scala.compat.java8.FutureConverters._
 import scala.collection.immutable.Seq
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 /** TypedSubspace is a wrapper around FoundationDB API exposing typed (where possible)
@@ -39,37 +39,32 @@ trait TypedSubspace[Entity, Key] {
     toEntity(keyRepr, keyValue.getValue)
   }
 
-  final def clear(): DBIO[Unit] = DBIO {
-    case (tx, _) =>
-      Future.fromTry(Try(tx.clear(subspace.range())))
+  final def clear(): DBIO[Unit] = {
+    DBIO.fromTransactionToTry(tx => Try(tx.clear(subspace.range())))
   }
 
-  final def clear(key: Key): DBIO[Unit] = DBIO {
-    case (tx, _) =>
-      val packedKey = toSubspaceKey(key)
-      Future.fromTry(Try(tx.clear(packedKey)))
+  final def clear(key: Key): DBIO[Unit] = {
+    val packedKey = toSubspaceKey(key)
+    DBIO.fromTransactionToTry(tx => Try(tx.clear(packedKey)))
   }
 
-  final def clear(range: Range): DBIO[Unit] = DBIO {
-    case (tx, _) =>
-      Future.fromTry(Try(tx.clear(range)))
+  final def clear(range: Range): DBIO[Unit] = {
+    DBIO.fromTransactionToTry(tx => Try(tx.clear(range)))
   }
 
-  final def clear(from: Key, to: Key): DBIO[Unit] = DBIO {
-    case (tx, _) =>
-      val packedFromKey = toSubspaceKey(from)
-      val packedToKey = toSubspaceKey(to)
-      Future.fromTry(Try(tx.clear(packedFromKey, packedToKey)))
+  final def clear(from: Key, to: Key): DBIO[Unit] = {
+    val packedFromKey = toSubspaceKey(from)
+    val packedToKey = toSubspaceKey(to)
+    DBIO.fromTransactionToTry(tx => Try(tx.clear(packedFromKey, packedToKey)))
   }
 
-  final def get(key: Key): ReadDBIO[Option[Entity]] = ReadDBIO {
-    case (tx, ec) =>
-      val packedKey = toSubspaceKey(key)
-      tx.get(packedKey)
-        .toScala
-        .map { byteArray =>
-          Option(byteArray).map(toEntity(key, _))
-        }(ec)
+  final def get(key: Key): ReadDBIO[Option[Entity]] = {
+    val packedKey = toSubspaceKey(key)
+    ReadDBIO.fromTransactionToPromise { tx =>
+      tx.get(packedKey).thenApply[Option[Entity]] { byteArray =>
+        Option(byteArray).map(toEntity(key, _))
+      }
+    }
   }
 
   def getRange(from: Key, to: Key): ReadDBIO[Seq[Entity]] = getRange(from, to, 50)
@@ -78,53 +73,48 @@ trait TypedSubspace[Entity, Key] {
     getRange(from, to, limit, reverse = false)
   }
 
-  final def getRange(from: Key, to: Key, limit: Int, reverse: Boolean): ReadDBIO[Seq[Entity]] =
-    ReadDBIO {
-      case (tx, ec) =>
-        val packedFromKey = toSubspaceKey(from)
-        val packedToKey = toSubspaceKey(to)
-        val keyValues = tx.getRange(packedFromKey, packedToKey, limit, reverse)
-        toRangeResult(keyValues)(ec)
+  final def getRange(from: Key, to: Key, limit: Int, reverse: Boolean): ReadDBIO[Seq[Entity]] = {
+    val packedFromKey = toSubspaceKey(from)
+    val packedToKey = toSubspaceKey(to)
+    ReadDBIO.fromTransactionToPromise { tx =>
+      val keyValues = tx.getRange(packedFromKey, packedToKey, limit, reverse)
+      toRangeResult(keyValues)
     }
+  }
 
-  final def getRange(range: Range): ReadDBIO[Seq[Entity]] = ReadDBIO {
-    case (tx, ec) =>
-      toRangeResult(tx.getRange(range))(ec)
+  final def getRange(range: Range): ReadDBIO[Seq[Entity]] = {
+    ReadDBIO.fromTransactionToPromise(tx => toRangeResult(tx.getRange(range)))
   }
 
   final def getRange(range: Range, limit: Int): ReadDBIO[Seq[Entity]] =
     getRange(range, limit, reverse = false)
 
-  final def getRange(range: Range, limit: Int, reverse: Boolean): ReadDBIO[Seq[Entity]] = ReadDBIO {
-    case (tx, ec) =>
-      toRangeResult(tx.getRange(range, limit, reverse))(ec)
+  final def getRange(range: Range, limit: Int, reverse: Boolean): ReadDBIO[Seq[Entity]] = {
+    ReadDBIO.fromTransactionToPromise(tx => toRangeResult(tx.getRange(range, limit, reverse)))
   }
 
-  final def getRange(from: KeySelector, to: KeySelector): ReadDBIO[Seq[Entity]] = ReadDBIO {
-    case (tx, ec) =>
-      toRangeResult(tx.getRange(from, to))(ec)
+  final def getRange(from: KeySelector, to: KeySelector): ReadDBIO[Seq[Entity]] = {
+    ReadDBIO.fromTransactionToPromise(tx => toRangeResult(tx.getRange(from, to)))
   }
 
-  final def getRange(from: KeySelector, to: KeySelector, limit: Int): ReadDBIO[Seq[Entity]] =
-    ReadDBIO {
-      case (tx, ec) =>
-        toRangeResult(tx.getRange(from, to, limit))(ec)
-    }
+  final def getRange(from: KeySelector, to: KeySelector, limit: Int): ReadDBIO[Seq[Entity]] = {
+    ReadDBIO.fromTransactionToPromise(tx => toRangeResult(tx.getRange(from, to, limit)))
+  }
 
   final def getRange(
       from: KeySelector,
       to: KeySelector,
       limit: Int,
-      reverse: Boolean): ReadDBIO[Seq[Entity]] = ReadDBIO {
-    case (tx, ec) =>
-      toRangeResult(tx.getRange(from, to, limit, reverse))(ec)
+      reverse: Boolean): ReadDBIO[Seq[Entity]] = {
+    ReadDBIO.fromTransactionToPromise(tx => toRangeResult(tx.getRange(from, to, limit, reverse)))
   }
 
-  def set(entity: Entity): DBIO[Unit] = DBIO {
-    case (tx, _) =>
+  def set(entity: Entity): DBIO[Unit] = {
+    DBIO.fromTransactionToTry { tx =>
       val packedKey = toSubspaceKey(toKey(entity))
       val packedValue = toRawValue(entity)
-      Future.fromTry(Try(tx.set(packedKey, packedValue)))
+      Try(tx.set(packedKey, packedValue))
+    }
   }
 
   final def range(): Range = subspace.range()
@@ -155,16 +145,14 @@ trait TypedSubspace[Entity, Key] {
   final def lastLessThan(key: Tuple): KeySelector =
     KeySelector.lastLessThan(subspace.pack(key.pack()))
 
-  private def toRangeResult(keyValues: AsyncIterable[KeyValue])(
-      implicit ec: ExecutionContextExecutor): Future[Seq[Entity]] = {
+  private def toRangeResult(keyValues: AsyncIterable[KeyValue]): CompletableFuture[Seq[Entity]] = {
     keyValues
       .asList()
-      .toScala
-      .map { javaList =>
+      .thenApply[Seq[Entity]] { javaList =>
         javaList
           .iterator()
           .map(toEntity)
           .toList
-      }(ec)
+      }
   }
 }

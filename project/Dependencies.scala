@@ -3,7 +3,7 @@ import scala.collection.immutable.Seq
 
 object Dependencies {
 
-  private val akkaVersion = "2.5.19"
+  private val akkaVersion = "2.5.20"
   private lazy val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
   private lazy val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 
