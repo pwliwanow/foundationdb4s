@@ -30,7 +30,7 @@ val booksSubspace = new TypedSubspace[Book, String] {
 
 val dbio: DBIO[Option[Book]] = for {
   _ <- booksSubspace.set(Book("978-0451205766", "The Godfather", LocalDate.parse("2002-03-01")))
-  maybeBook <- booksSubspace.get("978-0451205766")
+  maybeBook <- booksSubspace.get("978-0451205766").toDBIO
 } yield maybeBook
 
 val maybeBook: Future[Option[Book]] = dbio.transact(database)
@@ -61,12 +61,10 @@ libraryDependencies ++= Seq(
 - Akka Streams `Source` implementation (`akka-streams` module)
 
 ## Basic abstractions
-Reading from a `TypedSubspace` (`get` and `getRange` operations) returns `ReadDBIO[_]` monad.
-
 Modifying data within a `TypedSubspace` (`clear` and `set` operations) returns `DBIO[_]` monad.
 
-Having `read: ReadDBIO[Unit]` and `set: DBIO[Unit]`, 
-both `read.flatMap(_ => set)` and `set.flatMap(_ => read)` will result in `DBIO[Unit]`.
+Reading from a `TypedSubspace` (`get` and `getRange` operations) returns `ReadDBIO[_]` monad.
+`ReadDBIO[_]` provides method `.toDBIO` for converting `ReadDBIO[_]` into `DBIO[_]`.
 
 ## Versionstamps 
 Versionstamp consists of "transaction" version and of a user version.

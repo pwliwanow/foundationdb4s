@@ -93,13 +93,13 @@ object ClassScheduling {
       for {
         ca <- getClassAvailability(c)
         _ <- ca.checkThat(_.seatsAvailable > 0)("No remaining seats")
-        attendances <- attendanceSubspace.getRange(attendanceSubspace.range(Tuple.from(s)))
+        attendances <- attendanceSubspace.getRange(attendanceSubspace.range(Tuple.from(s))).toDBIO
         _ <- attendances.checkThat(_.size < 5)("Too many classes")
         _ <- classAvailabilitySubspace.set(ca.copy(seatsAvailable = ca.seatsAvailable - 1))
         _ <- attendanceSubspace.set(Attendance(s, ca.`class`))
       } yield ()
     for {
-      maybeAttendance <- attendanceSubspace.get(Attendance(s, c))
+      maybeAttendance <- attendanceSubspace.get(Attendance(s, c)).toDBIO
       _ <- maybeAttendance
         .map(_ => DBIO.pure[Unit](())) // already signed up
         .getOrElse(enroll)
@@ -114,7 +114,7 @@ object ClassScheduling {
         _ <- attendanceSubspace.clear()
       } yield ()
     for {
-      maybeAttendence <- attendanceSubspace.get(Attendance(s, c))
+      maybeAttendence <- attendanceSubspace.get(Attendance(s, c)).toDBIO
       _ <- maybeAttendence.fold[DBIO[Unit]](DBIO.pure(()))(doDropClass)
     } yield ()
   }
@@ -127,7 +127,7 @@ object ClassScheduling {
 
   private def getClassAvailability(c: Class): DBIO[ClassAvailability] =
     for {
-      maybeClass <- classAvailabilitySubspace.get(c)
+      maybeClass <- classAvailabilitySubspace.get(c).toDBIO
       _ <- maybeClass.checkThat(_.isDefined)("Class does not exist")
     } yield maybeClass.get
 
