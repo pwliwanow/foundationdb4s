@@ -133,6 +133,28 @@ val updateDbio = eventsSubspace.set(updatedEvent)
 updateDbio.transact(database)
 ``` 
 
+## Watches
+When application needs to monitor changes done to a given key, it can periodically read the key or it can use _watches_.
+Watches are created for a given key, and return a `Promise` that will be completed, once the value for the key changes.
+
+Note that there is limited number of watches that can be active for each database connection (by default 10,000),
+so watches that are no longer needed should be canceled.
+Once the number is exceeded creating new watches will fail.
+
+```scala
+// reusing first example
+final case class Book(isbn: String, title: String, publishedOn: LocalDate)
+val booksSubspace: TypedSubspace[Book, String] = ???
+
+val key = "978-0451205766"
+val dbio: DBIO[Promise[Unit]] = booksSubspace.watch(key)
+val watch: Promise[Unit] = dbio.transact(database)
+```   
+
+More information about watches can be found in 
+[FoundationDB developer guide](https://apple.github.io/foundationdb/developer-guide.html#watches) and
+[FoundationDB Javadoc](https://apple.github.io/foundationdb/javadoc/com/apple/foundationdb/Transaction.html#watch-byte:A-).  
+
 ## Reading large amount of data
 If you want to stream data from a subspace, it can take longer than FoundationDb transaction time limit,
 and your data is immutable and append only, or if approximation is good enough for your use case, 

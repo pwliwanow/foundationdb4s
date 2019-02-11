@@ -5,6 +5,9 @@ import com.apple.foundationdb.{KeySelector, KeyValue}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 
+import scala.concurrent.Future
+import scala.concurrent.duration._
+
 class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   private val earlierSubspace = new Subspace(Tuple.from("foundationDbEarlierTestSubspace"))
@@ -294,6 +297,19 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val obtained = typedSubspace.lastLessThan(tuple)
     val expected = KeySelector.lastLessThan(subspace.pack(tuple.pack()))
     assert(obtained === expected)
+  }
+
+  it should "be able to watch a key" in {
+    addElement(key, value, subspace)
+    val dbio = typedSubspace.watch(entityKey)
+    val res = dbio.transact(database).await
+    assert(!res.isCompleted)
+    Future {
+      val changedEntity = entity.copy(friendName = "New name")
+      val (_, newValue) = entityToTuples(changedEntity)
+      addElement(key, newValue, subspace)
+    }.await
+    awaitResult(res.isCompleted)(maxWaitTime = 1.second)
   }
 
   private def addElement(key: Tuple, value: Tuple, to: Subspace): Unit = {
