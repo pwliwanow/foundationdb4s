@@ -148,7 +148,7 @@ val booksSubspace: TypedSubspace[Book, String] = ???
 
 val key = "978-0451205766"
 val dbio: DBIO[Promise[Unit]] = booksSubspace.watch(key)
-val watch: Promise[Unit] = dbio.transact(database)
+val futureWatch: Future[Promise[Unit]] = dbio.transact(database)
 ```   
 
 More information about watches can be found in 
