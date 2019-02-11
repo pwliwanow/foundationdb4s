@@ -1,6 +1,7 @@
 package com.github.pwliwanow.foundationdb4s.core.internal
 import java.util.concurrent.CompletableFuture
 
+import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
 private[foundationdb4s] object CompletableFutureHolder {
@@ -28,6 +29,24 @@ private[foundationdb4s] class CompletableFutureHolder[A](val value: CompletableF
       }
     }
     ()
+  }
+
+  def toPromise: Promise[A] = {
+    val result = Promise[A]()
+    result.future.onComplete {
+      case Success(v)  => value.complete(v)
+      case Failure(ex) => value.completeExceptionally(ex)
+    }(SameThreadExecutionContext)
+    value.handle[Unit] { (v, ex) =>
+      // note that checking for completeness here is only on best effort basis,
+      // that's why later `result.complete` is wrapped in Try
+      if (!result.isCompleted) {
+        val tryResult = if (ex eq null) Success(v) else Failure(ex)
+        Try(result.complete(tryResult))
+      }
+      ()
+    }
+    result
   }
 
   def zip[B](other: CompletableFuture[B]): CompletableFuture[(A, B)] = {

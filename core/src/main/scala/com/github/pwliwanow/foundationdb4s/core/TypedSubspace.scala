@@ -6,10 +6,12 @@ import com.apple.foundationdb.async.AsyncIterable
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 import com.apple.foundationdb.{KeySelector, KeyValue, Range}
+import com.github.pwliwanow.foundationdb4s.core.internal.CompletableFutureHolder._
 
 import scala.collection.convert.ImplicitConversions._
 import scala.collection.immutable.Seq
-import scala.util.Try
+import scala.concurrent.Promise
+import scala.util.{Success, Try}
 
 /** TypedSubspace is a wrapper around FoundationDB API exposing typed (where possible)
   * operations within provided Subspace.
@@ -144,6 +146,16 @@ trait TypedSubspace[Entity, Key] {
 
   final def lastLessThan(key: Tuple): KeySelector =
     KeySelector.lastLessThan(subspace.pack(key.pack()))
+
+  final def watch(key: Key): DBIO[Promise[Unit]] = {
+    watchJava(key).map(_.toPromise)
+  }
+
+  final def watchJava(key: Key): DBIO[CompletableFuture[Unit]] = {
+    DBIO.fromTransactionToTry { tx =>
+      Success(tx.watch(toSubspaceKey(key)).thenApply[Unit](_ => ()))
+    }
+  }
 
   private def toRangeResult(keyValues: AsyncIterable[KeyValue]): CompletableFuture[Seq[Entity]] = {
     keyValues

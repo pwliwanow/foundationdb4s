@@ -10,9 +10,10 @@ import org.scalactic.Equality
 import org.scalatest.{Assertion, BeforeAndAfterEach, FlatSpecLike}
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.annotation.tailrec
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
   spec =>
@@ -76,6 +77,26 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
         a.toString == bSelector.toString
       }
     }
+
+  // as this functions uses Thread.sleep, use it only in core.
+  // When there is Akka (or something similar) in scope,
+  // use suitable methods provided by their testkit
+  protected[core] def awaitResult(assertion: => Boolean)(
+      checkInterval: Duration = 50.millis,
+      maxWaitTime: Duration = 3.seconds): Unit = {
+    @tailrec
+    def loop(maxEndTime: Long): Unit = {
+      Thread.sleep(checkInterval.toMillis)
+      Try(assert(assertion)) match {
+        case Success(_) => ()
+        case Failure(ex) =>
+          if (maxEndTime < System.nanoTime()) throw ex
+          else loop(maxEndTime)
+      }
+    }
+    val maxEndTime = System.nanoTime() + maxWaitTime.toNanos
+    loop(maxEndTime)
+  }
 
   private def assertEq[A, F[_]](isEqDbio: IsEq[F[A]], f: F[A] => Future[A]): Assertion = {
     val leftFuture = f(isEqDbio.lhs)
