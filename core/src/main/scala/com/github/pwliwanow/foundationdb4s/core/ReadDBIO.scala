@@ -10,7 +10,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
-final case class ReadDBIO[A] private (private val underlying: TransactionalM[ReadTransaction, A]) {
+final case class ReadDBIO[+A] private (private val underlying: TransactionalM[ReadTransaction, A]) {
 
   def map[B](f: A => B): ReadDBIO[B] = {
     ReadDBIO(underlying.map(f))
@@ -33,7 +33,7 @@ final case class ReadDBIO[A] private (private val underlying: TransactionalM[Rea
       }
   }
 
-  def transactJava(readContext: ReadTransactionContext): CompletableFuture[A] = {
+  def transactJava[B >: A](readContext: ReadTransactionContext): CompletableFuture[B] = {
     readContext.readAsync(tx => underlying.run(tx))
   }
 }

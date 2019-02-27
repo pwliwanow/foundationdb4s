@@ -12,7 +12,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
-final case class DBIO[A] private (private val underlying: TransactionalM[Transaction, A]) {
+final case class DBIO[+A] private (private val underlying: TransactionalM[Transaction, A]) {
 
   def map[B](f: A => B): DBIO[B] = {
     DBIO(underlying.map(f))
@@ -47,7 +47,7 @@ final case class DBIO[A] private (private val underlying: TransactionalM[Transac
     *
     * @return a [[CompletableFuture]] that will contain a value returned by running this DBIO.
     */
-  def transactJava(context: TransactionContext): CompletableFuture[A] = {
+  def transactJava[B >: A](context: TransactionContext): CompletableFuture[B] = {
     context.runAsync(tx => underlying.run(tx))
   }
 
@@ -112,11 +112,11 @@ final case class DBIO[A] private (private val underlying: TransactionalM[Transac
     *         For DBIO that modified the database, [[Versionstamp]] will be equal to the versionstamp used
     *         by any versionstamp operations in this DBIO.
     */
-  def transactVersionstampedJava(
+  def transactVersionstampedJava[B >: A](
       database: Database,
-      userVersion: Int): CompletableFuture[(A, Option[Versionstamp])] = {
+      userVersion: Int): CompletableFuture[(B, Option[Versionstamp])] = {
     val versionstampPromise = new CompletableFuture[Versionstamp]()
-    val res: CompletableFuture[A] = database.runAsync { tx =>
+    val res: CompletableFuture[B] = database.runAsync { tx =>
       versionstampPromise.completeWith {
         tx.getVersionstamp.thenApply[Versionstamp] { bytes =>
           Versionstamp.complete(bytes, userVersion)
