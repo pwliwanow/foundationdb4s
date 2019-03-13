@@ -6,6 +6,7 @@ import java.util.function
 import cats.laws.MonadLaws
 import com.apple.foundationdb._
 import com.apple.foundationdb.tuple.{Tuple, Versionstamp}
+import com.github.pwliwanow.foundationdb4s.core.Pet.{Cat, Dog}
 import org.scalamock.scalatest.MockFactory
 
 import scala.util.{Failure, Success, Try}
@@ -158,6 +159,20 @@ class DBIOSpec extends FoundationDbSpec with MockFactory {
     val dbio = DBIO.pure(value)
     val result = Try(dbio.transactVersionstamped(database).await).map { case (v, _) => v }
     assert(result === Success(value))
+  }
+
+  it should "correctly handle covariance" in {
+    import cats.implicits._
+    val cat = Cat("Tom")
+    val dog = Dog("Rico")
+    val expected = List(cat, dog)
+    val catDbio: DBIO[Pet] =
+      DBIO.fromTransactionToPromise(_ => CompletableFuture.supplyAsync[Pet](() => cat))
+    val dogDbio: DBIO[Dog] =
+      DBIO.fromTransactionToPromise(_ => CompletableFuture.supplyAsync(() => dog))
+    val dbioPets: DBIO[List[Pet]] = List(catDbio, dogDbio).sequence
+    val received = dbioPets.transact(database).await
+    assert(received === expected)
   }
 
   private def contextWithNullTransaction: TransactionContext = new TransactionContext {

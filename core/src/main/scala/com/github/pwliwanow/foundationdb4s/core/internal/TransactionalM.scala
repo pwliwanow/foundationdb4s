@@ -7,7 +7,7 @@ import com.github.pwliwanow.foundationdb4s.core.internal.Or3.{Left, Middle, Righ
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-private[foundationdb4s] abstract class TransactionalM[Tx, A] {
+private[foundationdb4s] abstract class TransactionalM[Tx, +A] {
   import TransactionalM._
 
   private[foundationdb4s] final def map[B](f: A => B): TransactionalM[Tx, B] = {
@@ -19,29 +19,29 @@ private[foundationdb4s] abstract class TransactionalM[Tx, A] {
     FlatMap(this, f)
   }
 
-  private[foundationdb4s] final def run(tx: Tx): CompletableFuture[A] = {
-    def loop(dbio: TransactionalM[Tx, _]): CompletableFuture[A] = {
+  private[foundationdb4s] final def run[B >: A](tx: Tx): CompletableFuture[B] = {
+    def loop(dbio: TransactionalM[Tx, _]): CompletableFuture[B] = {
       dbio.resume(tx) match {
         case Right(v) =>
-          val result = new CompletableFuture[A]()
-          result.completeWithTry(v.asInstanceOf[Try[A]])
+          val result = new CompletableFuture[B]()
+          result.completeWithTry(v.asInstanceOf[Try[B]])
           result
-        case Middle(v) => v.asInstanceOf[CompletableFuture[A]]
+        case Middle(v) => v.asInstanceOf[CompletableFuture[B]]
         case Left(f) =>
-          f.thenCompose[A](x => loop(x))
+          f.thenCompose[B](x => loop(x))
       }
     }
     loop(this)
   }
 
   @tailrec
-  private final def resume(
-      tx: Tx): Or3[CompletableFuture[TransactionalM[Tx, A]], CompletableFuture[A], Try[A]] = {
+  private final def resume[B >: A](
+      tx: Tx): Or3[CompletableFuture[TransactionalM[Tx, B]], CompletableFuture[B], Try[B]] = {
     this match {
       case Pure(v)         => Right(Success(v))
       case RaiseError(ex)  => Right(Failure(ex))
       case TryAction(f)    => Right(f(tx))
-      case FutureAction(f) => Middle(f(tx))
+      case FutureAction(f) => Middle(f(tx).asInstanceOf[CompletableFuture[B]])
       case FlatMap(c, f) =>
         c match {
           case Pure(v)        => f(v).resume(tx)

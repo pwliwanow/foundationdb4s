@@ -7,6 +7,7 @@ import cats.kernel.laws.IsEq
 import cats.laws.MonadLaws
 import com.apple.foundationdb.{ReadTransaction, Transaction, TransactionContext}
 import com.apple.foundationdb.tuple.Tuple
+import com.github.pwliwanow.foundationdb4s.core.Pet.{Cat, Dog}
 
 import scala.util.Try
 
@@ -128,6 +129,20 @@ class ReadDBIOSpec extends FoundationDbSpec {
       Tuple.fromBytes(byteArray).getString(0)
     }
     assert(result === "value")
+  }
+
+  it should "correctly handle covariance" in {
+    import cats.implicits._
+    val cat = Cat("Tom")
+    val dog = Dog("Rico")
+    val expected = List(cat, dog)
+    val catReadDbio: ReadDBIO[Cat] =
+      ReadDBIO.fromTransactionToPromise(_ => CompletableFuture.supplyAsync(() => cat))
+    val dogReadDbio: ReadDBIO[Dog] =
+      ReadDBIO.fromTransactionToTry(_ => Try(dog))
+    val dbioPets: ReadDBIO[List[Pet]] = List(catReadDbio, dogReadDbio).sequence
+    val received = dbioPets.transact(database).await
+    assert(received === expected)
   }
 
   private def contextWithNullTransaction: TransactionContext = new TransactionContext {
