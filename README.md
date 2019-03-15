@@ -36,8 +36,6 @@ val dbio: DBIO[Option[Book]] = for {
 val maybeBook: Future[Option[Book]] = dbio.transact(database)
 ```
 
-The library is still incomplete and does not cover everything official client does.
-
 If you:
 - think some functionality is missing
 - find a bug 
@@ -65,6 +63,23 @@ Modifying data within a `TypedSubspace` (`clear` and `set` operations) returns `
 
 Reading from a `TypedSubspace` (`get` and `getRange` operations) returns `ReadDBIO[_]` monad.
 `ReadDBIO[_]` provides method `.toDBIO` for converting `ReadDBIO[_]` into `DBIO[_]`.
+
+## Parallel requests
+Sometimes it may prove useful to perform operations in parallel (e.g. in case of independent `gets`). 
+For that use case `Parallel` type class from [Cats](https://typelevel.org/cats/typeclasses/parallel.html) is provided: 
+it allows users to use operations like `parSequence`, `parTraverse` and `parMapN`.
+
+```scala
+// `Parallel` type classes are defined in `DBIO` and `ReadDBIO` companion objects, 
+// so there is no need to import them as they are in scope automatically 
+import cats.implicits._
+
+val dbios: List[ReadDBIO[Option[Book]]] = 
+  List(booksSubspace.get("978-0451205766"), booksSubspace.get("978-1491962299"))
+// instruct `dbios` to be run in parallel
+val dbio: ReadDBIO[List[Option[Book]]] = dbios.parSequence
+val result: Future[List[Option[Book]]] = dbio.transact(database)
+```
 
 ## Versionstamps 
 Versionstamp consists of "transaction" version and of a user version.

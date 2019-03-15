@@ -1,8 +1,9 @@
 package com.github.pwliwanow.foundationdb4s.core
 
 import java.util.concurrent.{CompletableFuture, CompletionException}
+import java.util.function.{Function => JF}
 
-import cats.{Monad, StackSafeMonad}
+import cats.{Applicative, Monad, Parallel, StackSafeMonad, ~>}
 import com.apple.foundationdb.tuple.Versionstamp
 import com.apple.foundationdb.{Database, Transaction, TransactionContext}
 import com.github.pwliwanow.foundationdb4s.core.internal.CompletableFutureHolder._
@@ -150,6 +151,57 @@ object DBIO {
   implicit val dbioMonad: Monad[DBIO] = new Monad[DBIO] with StackSafeMonad[DBIO] {
     override def pure[A](x: A): DBIO[A] = DBIO.pure(x)
     override def flatMap[A, B](fa: DBIO[A])(f: A => DBIO[B]): DBIO[B] = fa.flatMap(f)
+  }
+
+  // Newtype encoding inspired by cats IO and [[https://github.com/alexknvl/newtypes]]
+  object Par {
+    type Base
+    trait Tag extends Any
+    type Type[+A] <: Base with Tag
+
+    def apply[A](fa: DBIO[A]): Type[A] =
+      fa.asInstanceOf[Type[A]]
+
+    def unwrap[A](fa: Type[A]): DBIO[A] =
+      fa.asInstanceOf[DBIO[A]]
+  }
+  type Par[+A] = Par.Type[A]
+
+  implicit val parApplicative: Applicative[Par] = new Applicative[Par] {
+    override def pure[A](x: A): Par[A] =
+      Par(DBIO.pure(x))
+    override def map2[A, B, Z](fa: Par[A], fb: Par[B])(f: (A, B) => Z): Par[Z] = {
+      val dbio = DBIO.fromTransactionToPromise { tx =>
+        val pa = Par.unwrap(fa).underlying.run(tx)
+        val pb = Par.unwrap(fb).underlying.run(tx)
+        val jf: JF[A, CompletableFuture[Z]] = a => {
+          pb.thenApply[Z] { b =>
+            f(a, b)
+          }
+        }
+        pa.thenComposeAsync[Z](jf, tx.getExecutor)
+      }
+      Par(dbio)
+    }
+    override def ap[A, B](ff: Par[A => B])(fa: Par[A]): Par[B] =
+      map2(ff, fa)(_(_))
+    override def product[A, B](fa: Par[A], fb: Par[B]): Par[(A, B)] =
+      map2(fa, fb)((_, _))
+  }
+
+  implicit val dbioParallel: Parallel[DBIO, Par] = new Parallel[DBIO, Par] {
+    override def applicative: Applicative[Par] = parApplicative
+    override def monad: Monad[DBIO] = dbioMonad
+    override def sequential: Par ~> DBIO = {
+      new ~>[Par, DBIO] {
+        override def apply[A](fa: Par[A]): DBIO[A] = Par.unwrap(fa)
+      }
+    }
+    override def parallel: DBIO ~> Par = {
+      new ~>[DBIO, Par] {
+        override def apply[A](fa: DBIO[A]): Par[A] = Par(fa)
+      }
+    }
   }
 
 }

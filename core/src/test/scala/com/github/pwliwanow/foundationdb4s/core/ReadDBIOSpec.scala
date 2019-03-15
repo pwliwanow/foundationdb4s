@@ -1,19 +1,22 @@
 package com.github.pwliwanow.foundationdb4s.core
 
-import java.util.concurrent.{CompletableFuture, Executor}
-import java.util.function
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
 
-import cats.kernel.laws.IsEq
-import cats.laws.MonadLaws
-import com.apple.foundationdb.{ReadTransaction, Transaction, TransactionContext}
+import cats.laws.{ApplicativeLaws, IsEq, MonadLaws, ParallelLaws}
+import com.apple.foundationdb.ReadTransaction
 import com.apple.foundationdb.tuple.Tuple
 import com.github.pwliwanow.foundationdb4s.core.Pet.{Cat, Dog}
+import org.scalatest.Assertion
 
+import scala.concurrent.blocking
 import scala.util.Try
 
 class ReadDBIOSpec extends FoundationDbSpec {
 
   private val monadLaws = MonadLaws[ReadDBIO]
+  private val applicativeLaws = ApplicativeLaws[ReadDBIO.Par]
+  private val parLaws = ParallelLaws[ReadDBIO, ReadDBIO.Par]
 
   it should "satisfy monadLeftIdentity" in {
     val table =
@@ -86,7 +89,7 @@ class ReadDBIOSpec extends FoundationDbSpec {
     val deeplyNested = (1 to n).foldLeft(ReadDBIO.pure("")) { (dbio, _) =>
       dbio.flatMap(_ => ReadDBIO.fromTransactionToTry(action))
     }
-    deeplyNested.transact(contextWithNullTransaction)
+    deeplyNested.transact(database)
   }
 
   it should "not fail with stack overflow for deeply nested combination of FutureAction and FlatMaps" in {
@@ -95,7 +98,7 @@ class ReadDBIOSpec extends FoundationDbSpec {
     val deeplyNested = (1 to n).foldLeft(ReadDBIO.pure("")) { (dbio, _) =>
       dbio.flatMap(_ => ReadDBIO.fromTransactionToPromise(action))
     }
-    deeplyNested.transact(contextWithNullTransaction)
+    deeplyNested.transact(database)
   }
 
   it should "be able to convert itself to DBIO" in {
@@ -145,28 +148,84 @@ class ReadDBIOSpec extends FoundationDbSpec {
     assert(received === expected)
   }
 
-  private def contextWithNullTransaction: TransactionContext = new TransactionContext {
-    override def run[T](retryable: function.Function[_ >: Transaction, T]): T = {
-      retryable(null)
-    }
+  it should "be able to run actions in parallel" in {
+    import cats.implicits._
+    val bool1 = new AtomicBoolean(false)
+    val bool2 = new AtomicBoolean(false)
+    def createDbio(boolToWatch: AtomicBoolean, boolToChange: AtomicBoolean) =
+      ReadDBIO.fromTransactionToPromise[Unit] { _ =>
+        CompletableFuture.supplyAsync[Unit] { () =>
+          blocking {
+            while (!boolToWatch.get()) {
+              Thread.sleep(10)
+              boolToChange.set(true)
+            }
+          }
+          ()
+        }
+      }
+    val readDbio = List(createDbio(bool1, bool2), createDbio(bool2, bool1)).parSequence
+    readDbio.transact(database).await
+  }
 
-    override def runAsync[T](
-        retryable: function.Function[_ >: Transaction, _ <: CompletableFuture[T]])
-      : CompletableFuture[T] = {
-      retryable(null)
+  it should "satisfy applicativeIdentity for parApplicative" in {
+    val table =
+      Table[ReadDBIO.Par[String]](
+        "ReadDBIOPar",
+        ReadDBIO.parApplicative.pure("0"),
+        ReadDBIO.Par(ReadDBIO.failed[String](TestError("Error"))))
+    forAll(table) { x: ReadDBIO.Par[String] =>
+      val isEq = applicativeLaws.applicativeIdentity(x)
+      assertParDbioEq(isEq)
     }
+  }
 
-    override def read[T](retryable: function.Function[_ >: ReadTransaction, T]): T = {
-      retryable(null)
+  it should "satisfy applicativeHomomorphism for parApplicative" in {
+    val table =
+      Table(
+        ("element", "element to ReadDBIO.Par"),
+        (1, (x: Int) => ReadDBIO.parApplicative.pure(x.toString)),
+        (2, (_: Int) => ReadDBIO.Par(ReadDBIO.failed[String](TestError("Error"))))
+      )
+    forAll(table) { (x: Int, f: Int => ReadDBIO.Par[String]) =>
+      val isEq = applicativeLaws.applicativeHomomorphism(x, f)
+      assertParDbioEq(isEq)
     }
+  }
 
-    override def readAsync[T](
-        retryable: function.Function[_ >: ReadTransaction, _ <: CompletableFuture[T]])
-      : CompletableFuture[T] = {
-      retryable(null)
+  it should "satisfy applicativeInterchange for parApplicative" in {
+    val table =
+      Table(
+        ("element", "element to ReadDBIO.Par"),
+        (1, ReadDBIO.parApplicative.pure[Int => String](_.toString)),
+        (2, ReadDBIO.Par(ReadDBIO.failed[Int => String](TestError("Error"))))
+      )
+    forAll(table) { (x: Int, dbio: ReadDBIO.Par[Int => String]) =>
+      val isEq = applicativeLaws.applicativeInterchange(x, dbio)
+      assertParDbioEq(isEq)
     }
+  }
 
-    override def getExecutor: Executor = ec
+  it should "satisfy applicativeMap for parApplicative" in {
+    val f: Int => String = _.toString
+    val table =
+      Table(
+        "ReadDBIO.Par",
+        ReadDBIO.parApplicative.pure(1),
+        ReadDBIO.Par(ReadDBIO.failed[Int](TestError("Error"))))
+    forAll(table) { x: ReadDBIO.Par[Int] =>
+      val isEq = applicativeLaws.applicativeMap(x, f)
+      assertParDbioEq(isEq)
+    }
+  }
+
+  it should "satisfy isomorphicPure for readDbioParallel" in {
+    val isEq = parLaws.isomorphicPure("value")
+    assertParDbioEq(isEq)
+  }
+
+  private def assertParDbioEq[A](isEq: IsEq[ReadDBIO.Par[A]]): Assertion = {
+    assertReadDbioEq(IsEq(ReadDBIO.Par.unwrap(isEq.lhs), ReadDBIO.Par.unwrap(isEq.rhs)))
   }
 
 }

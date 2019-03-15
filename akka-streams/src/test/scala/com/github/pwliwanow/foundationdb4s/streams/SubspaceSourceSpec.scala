@@ -6,14 +6,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
 import com.github.pwliwanow.foundationdb4s.core._
-import org.scalamock.scalatest.MockFactory
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.util.{Failure, Try}
 
-class SubspaceSourceSpec extends FoundationDbStreamsSpec with MockFactory {
+class SubspaceSourceSpec extends FoundationDbStreamsSpec {
 
   private val entity =
     FriendEntity(
