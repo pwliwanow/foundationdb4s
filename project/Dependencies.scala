@@ -17,8 +17,8 @@ object Dependencies {
   private val java8CompatVersion = "0.9.0"
   private lazy val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
-  private val scalaMockVersion = "4.1.0"
-  private lazy val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion
+  private val mockitoVersion = "2.25.1"
+  private lazy val mockito = "org.mockito" % "mockito-core" % mockitoVersion
 
   private lazy val akkaStreamsDependencies: Seq[ModuleID] = Seq(akkaStreams)
   private lazy val coreDependencies: Seq[ModuleID] = Seq(cats, foundationDb, java8Compat)
@@ -29,7 +29,7 @@ object Dependencies {
   private lazy val akkaStreamsTestDependencies: Seq[ModuleID] =
     Seq(akkaStreamsTestKit).map(_ % Test)
   private lazy val coreTestDependencies: Seq[ModuleID] =
-    Seq(catsLaws, scalaMock, scalaTest).map(_ % Test)
+    Seq(catsLaws, mockito, scalaTest).map(_ % Test)
 
   lazy val allAkkaStreamsDependencies
     : Seq[ModuleID] = akkaStreamsDependencies ++ akkaStreamsTestDependencies

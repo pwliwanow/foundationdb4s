@@ -1,3 +1,6 @@
-addSbtPlugin("com.softwaremill.sbt-softwaremill" % "sbt-softwaremill" % "1.3.17")
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.5.1")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.6.0-M5")
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.4.0")
+addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")
+addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.11")
+addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.1")
+addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "2.5")

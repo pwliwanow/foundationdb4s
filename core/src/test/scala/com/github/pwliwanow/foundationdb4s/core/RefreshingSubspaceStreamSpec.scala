@@ -8,8 +8,11 @@ import com.apple.foundationdb.async.{AsyncIterable, AsyncIterator => FdbAsyncIte
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 import com.github.pwliwanow.foundationdb4s.core.RefreshingSubspaceStream.TooManyFailsException
-import org.scalamock.scalatest.MockFactory
+import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers._
+import org.mockito.invocation.InvocationOnMock
 import org.scalatest.BeforeAndAfterAll
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ListBuffer
@@ -20,7 +23,7 @@ import scala.util.{Failure, Try}
 
 class RefreshingSubspaceStreamSpec
     extends FoundationDbSpec
-    with MockFactory
+    with MockitoSugar
     with BeforeAndAfterAll {
 
   private val entity =
@@ -108,50 +111,61 @@ class RefreshingSubspaceStreamSpec
 
   it should "fail if it there was another exception than FDBException during streaming" in {
     val allEntities = (1 to 1000).iterator.map(entityFromInt).toList
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
+    val stubbedDb = mock[Database]
+    val stubbedTx = mock[Transaction]
     val mockedReadTx = mock[ReadTransaction]
-    val iterable1 = stub[AsyncIterable[KeyValue]]
-    val iterable2 = stub[AsyncIterable[KeyValue]]
+    val iterable1 = mock[AsyncIterable[KeyValue]]
     val exception = TestError("Unexpected error")
     val iterator =
       asyncIteratorFailedAtTheEnd(
         xs = allEntities.take(100).map(entityToKeyValue),
         exception = exception)
-    (stubbedDb.createTransaction(_: Executor)).when(*).returns(stubbedTx)
-    (stubbedTx.snapshot _).when().returns(mockedReadTx)
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable1)
-      .once()
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable2)
-      .never()
-    (iterable1.iterator _).when().returns(iterator).once()
+    when(stubbedDb.createTransaction(any[Executor]())).thenReturn(stubbedTx)
+    when(stubbedTx.snapshot()).thenReturn(mockedReadTx)
+    when(
+      mockedReadTx.getRange(
+        any[KeySelector](),
+        any[KeySelector](),
+        anyInt(),
+        anyBoolean(),
+        any[StreamingMode]()))
+      .thenReturn(iterable1)
+    when(iterable1.iterator()).thenReturn(iterator)
+
     val res = Try(
       collectAllAndCloseStream(
         RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
+
     assert(res === Failure(exception))
+    verify(mockedReadTx, times(1))
+      .getRange(
+        any[KeySelector](),
+        any[KeySelector](),
+        anyInt(),
+        anyBoolean(),
+        any[StreamingMode]())
+    verifyNoMoreInteractions(mockedReadTx)
+    verify(iterable1, times(1)).iterator()
   }
 
   it should "fail if database keeps disconnecting" in {
     val allEntities = (1 to 1000).iterator.map(entityFromInt).toList
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
+    val stubbedDb = mock[Database]
+    val stubbedTx = mock[Transaction]
     val mockedReadTx = mock[ReadTransaction]
-    val iterable = stub[AsyncIterable[KeyValue]]
+    val iterable = mock[AsyncIterable[KeyValue]]
     val iterator = asyncIteratorFailedAtTheEnd(allEntities.take(100).map(entityToKeyValue))
-    (stubbedDb.createTransaction(_: Executor)).when(*).returns(stubbedTx)
-    (stubbedTx.snapshot _).when().returns(mockedReadTx)
-    (mockedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .returning(iterable)
-      .anyNumberOfTimes()
-    (iterable.iterator _).when().returns(iterator).anyNumberOfTimes()
+    when(stubbedDb.createTransaction(any[Executor]())).thenReturn(stubbedTx)
+    when(stubbedTx.snapshot()).thenReturn(mockedReadTx)
+    when(
+      mockedReadTx.getRange(
+        any[KeySelector](),
+        any[KeySelector](),
+        anyInt(),
+        anyBoolean(),
+        any[StreamingMode]()))
+      .thenReturn(iterable)
+    when(iterable.iterator()).thenReturn(iterator)
     val res = Try(
       collectAllAndCloseStream(
         RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
@@ -237,30 +251,34 @@ class RefreshingSubspaceStreamSpec
   }
 
   private def slowedDownDatabase: Database = {
-    val stubbedDb = stub[Database]
-    val stubbedTx = stub[Transaction]
+    val stubbedDb = mock[Database]
+    val stubbedTx = mock[Transaction]
     val stubbedReadTx = mock[ReadTransaction]
     var tx: Transaction = null
-    (stubbedDb
-      .createTransaction(_: Executor))
-      .when(*)
-      .onCall { _: Executor =>
+    when(stubbedDb.createTransaction(any[Executor]()))
+      .thenAnswer { _: InvocationOnMock =>
         if (tx != null) tx.close()
         tx = database.createTransaction()
         stubbedTx
       }
-      .anyNumberOfTimes()
-    (stubbedTx.snapshot _).when().returns(stubbedReadTx).anyNumberOfTimes()
-    (stubbedTx.close _).when().onCall(_ => tx.close()).anyNumberOfTimes()
-    (stubbedReadTx
-      .getRange(_: KeySelector, _: KeySelector, _: Int, _: Boolean, _: StreamingMode))
-      .expects(*, *, *, *, *)
-      .onCall {
-        (from: KeySelector, to: KeySelector, limit: Int, reverse: Boolean, mode: StreamingMode) =>
-          val realIterable = tx.getRange(from, to, limit, reverse, mode)
-          slowedDownIterable(realIterable)
+    when(stubbedTx.snapshot()).thenReturn(stubbedReadTx)
+    when(stubbedTx.close()).thenAnswer((_: InvocationOnMock) => tx.close())
+    when(
+      stubbedReadTx.getRange(
+        any[KeySelector](),
+        any[KeySelector](),
+        anyInt(),
+        anyBoolean(),
+        any[StreamingMode]()))
+      .thenAnswer { invocation: InvocationOnMock =>
+        val from = invocation.getArgument[KeySelector](0)
+        val to = invocation.getArgument[KeySelector](1)
+        val limit = invocation.getArgument[Int](2)
+        val reverse = invocation.getArgument[Boolean](3)
+        val mode = invocation.getArgument[StreamingMode](4)
+        val realIterable = tx.getRange(from, to, limit, reverse, mode)
+        slowedDownIterable(realIterable)
       }
-      .anyNumberOfTimes()
     stubbedDb
   }
 

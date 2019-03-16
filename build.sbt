@@ -2,10 +2,18 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
+lazy val scala2_12 = "2.12.8"
+lazy val scala2_13 = "2.13.0-M5"
+lazy val supportedScalaVersions = List(scala2_12, scala2_13)
+
+ThisBuild / scalaVersion := scala2_12
+
 lazy val fdb4s = project
   .in(file("."))
   .settings(commonSettings: _*)
-  .settings(skip in publish := true)
+  .settings(
+    skip in publish := true,
+    crossScalaVersions := Nil)
   .aggregate(akkaStreams, core, example)
 
 lazy val core = project
@@ -13,7 +21,8 @@ lazy val core = project
   .settings(
     commonSettings,
     name := "foundationdb4s-core",
-    libraryDependencies ++= allCoreDependencies
+    libraryDependencies ++= allCoreDependencies,
+    crossScalaVersions := supportedScalaVersions
   )
 
 lazy val akkaStreams = project
@@ -22,7 +31,8 @@ lazy val akkaStreams = project
   .settings(
     commonSettings,
     name := "foundationdb4s-akka-streams",
-    libraryDependencies ++= allAkkaStreamsDependencies
+    libraryDependencies ++= allAkkaStreamsDependencies,
+    crossScalaVersions := supportedScalaVersions
   )
 
 lazy val example = project
@@ -31,64 +41,47 @@ lazy val example = project
   .settings(
     commonSettings,
     name := "foundationdb4s-example",
-    skip in publish := true
+    skip in publish := true,
+    crossScalaVersions := supportedScalaVersions,
+    coverageEnabled := false
   )
 
-lazy val commonSettings = buildSettings ++ Seq(
+lazy val commonSettings = ossPublishSettings ++ Seq(
   organization := "com.github.pwliwanow.foundationdb4s",
   scalaVersion := "2.12.8",
   scalafmtOnCompile := true,
-  coverageExcludedPackages := "com.github.pwliwanow.foundationdb4s.example.*",
-  releaseProcess := Seq(
-    checkSnapshotDependencies,
-    inquireVersions,
-    // publishing locally so that the pgp password prompt is displayed early
-    // in the process
-    releaseStepCommandAndRemaining("+publishLocalSigned"),
-    releaseStepCommandAndRemaining("+clean"),
-    releaseStepCommandAndRemaining("+test"),
-    setReleaseVersion,
-    releaseStepTask(updateVersionInReadme),
-    commitReleaseVersion,
-    tagRelease,
-    releaseStepCommandAndRemaining("+publishSigned"),
-    setNextVersion,
-    commitNextVersion,
-    releaseStepCommand("sonatypeRelease"),
-    pushChanges
-  ),
   parallelExecution in ThisBuild := false,
   fork := true,
-  scalacOptions ++= Seq(
-    "-unchecked",
-    "-deprecation",
-    "-encoding",
-    "UTF-8",
-    "-explaintypes",
-    "-feature",
-    "-language:higherKinds",
-    "-language:implicitConversions",
-    "-Xfatal-warnings",
-    "-Xlint:inaccessible",
-    "-Xlint:infer-any",
-    "-Ywarn-dead-code",
-    "-Ypartial-unification",
-    "-Ywarn-unused:implicits",
-    "-Ywarn-unused:imports",
-    "-Ywarn-unused:locals",
-    "-Ywarn-unused:params",
-    "-Ywarn-unused:patvars",
-    "-Ywarn-unused:privates"
-  ),
+  scalacOptions ++= {
+    val commonScalacOptions =
+      List(
+        "-unchecked",
+        "-deprecation",
+        "-encoding",
+        "UTF-8",
+        "-explaintypes",
+        "-feature",
+        "-language:higherKinds",
+        "-language:implicitConversions",
+        "-Xfatal-warnings",
+        "-Xlint:inaccessible",
+        "-Xlint:infer-any",
+        "-Ywarn-dead-code",
+        "-Ywarn-unused:implicits",
+        "-Ywarn-unused:imports",
+        "-Ywarn-unused:locals",
+        "-Ywarn-unused:params",
+        "-Ywarn-unused:patvars",
+        "-Ywarn-unused:privates")
+    val extraOptions =
+      if (scalaVersion.value == scala2_12) List("-Ypartial-unification")
+      else List.empty
+    commonScalacOptions ++ extraOptions
+  },
   scalacOptions in (Compile, doc) ++= Seq(
     "-no-link-warnings"
   )
 )
-
-lazy val buildSettings =
-  commonSmlBuildSettings ++
-    acyclicSettings ++
-    ossPublishSettings
 
 lazy val ossPublishSettings = Seq(
   publishTo := Some(
@@ -126,7 +119,24 @@ lazy val ossPublishSettings = Seq(
   releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseIgnoreUntrackedFiles := true,
-  releaseProcess := Release.steps(organization.value)
+  releaseProcess := Seq(
+    checkSnapshotDependencies,
+    inquireVersions,
+    // publishing locally so that the pgp password prompt is displayed early
+    // in the process
+    releaseStepCommandAndRemaining("+publishLocalSigned"),
+    releaseStepCommandAndRemaining("+clean"),
+    releaseStepCommandAndRemaining("+test"),
+    setReleaseVersion,
+    releaseStepTask(updateVersionInReadme),
+    commitReleaseVersion,
+    tagRelease,
+    releaseStepCommandAndRemaining("+publishSigned"),
+    setNextVersion,
+    commitNextVersion,
+    releaseStepCommand("sonatypeRelease"),
+    pushChanges
+  )
 )
 
 lazy val updateVersionInReadme =
