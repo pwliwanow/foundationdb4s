@@ -188,7 +188,7 @@ class DBIOSpec extends FoundationDbSpec {
         CompletableFuture.supplyAsync[Unit] { () =>
           blocking {
             while (!boolToWatch.get()) {
-              Thread.sleep(10)
+              Thread.sleep(15)
               boolToChange.set(true)
             }
           }
