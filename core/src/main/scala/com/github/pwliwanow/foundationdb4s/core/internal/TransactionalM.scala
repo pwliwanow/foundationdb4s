@@ -1,13 +1,15 @@
 package com.github.pwliwanow.foundationdb4s.core.internal
 import java.util.concurrent.CompletableFuture
+import java.util.function.{Function => JF}
 
+import com.apple.foundationdb.ReadTransactionContext
 import com.github.pwliwanow.foundationdb4s.core.internal.CompletableFutureHolder._
 import com.github.pwliwanow.foundationdb4s.core.internal.Or3.{Left, Middle, Right}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-private[foundationdb4s] abstract class TransactionalM[Tx, +A] {
+private[foundationdb4s] abstract class TransactionalM[Tx <: ReadTransactionContext, +A] {
   import TransactionalM._
 
   private[foundationdb4s] final def map[B](f: A => B): TransactionalM[Tx, B] = {
@@ -28,7 +30,8 @@ private[foundationdb4s] abstract class TransactionalM[Tx, +A] {
           result
         case Middle(v) => v.asInstanceOf[CompletableFuture[B]]
         case Left(f) =>
-          f.thenCompose[B](x => loop(x))
+          val jf: JF[TransactionalM[Tx, Any], CompletableFuture[B]] = x => loop(x)
+          f.thenComposeAsync[B](jf, tx.getExecutor)
       }
     }
     loop(this)
@@ -63,36 +66,42 @@ private[foundationdb4s] abstract class TransactionalM[Tx, +A] {
 
 private[foundationdb4s] object TransactionalM {
 
-  private[foundationdb4s] def pure[Tx, A](value: A): TransactionalM[Tx, A] = {
+  private[foundationdb4s] def pure[Tx <: ReadTransactionContext, A](
+      value: A): TransactionalM[Tx, A] = {
     Pure(value)
   }
 
-  private[foundationdb4s] def failed[Tx, A](value: Throwable): TransactionalM[Tx, A] = {
+  private[foundationdb4s] def failed[Tx <: ReadTransactionContext, A](
+      value: Throwable): TransactionalM[Tx, A] = {
     RaiseError[Tx, A](value)
   }
 
-  private[foundationdb4s] def fromTransactionToPromise[Tx, A](
+  private[foundationdb4s] def fromTransactionToPromise[Tx <: ReadTransactionContext, A](
       f: Tx => CompletableFuture[A]): TransactionalM[Tx, A] = {
     FutureAction(f)
   }
 
-  private[foundationdb4s] def fromTransactionToTry[Tx, A](
+  private[foundationdb4s] def fromTransactionToTry[Tx <: ReadTransactionContext, A](
       f: Tx => Try[A]): TransactionalM[Tx, A] = {
     TryAction(f)
   }
 
-  private final case class Pure[Tx, A](value: A) extends TransactionalM[Tx, A]
-
-  private final case class FutureAction[Tx, A](f: Tx => CompletableFuture[A])
+  private final case class Pure[Tx <: ReadTransactionContext, A](value: A)
       extends TransactionalM[Tx, A]
 
-  private final case class TryAction[Tx, A](f: Tx => Try[A]) extends TransactionalM[Tx, A]
+  private final case class FutureAction[Tx <: ReadTransactionContext, A](
+      f: Tx => CompletableFuture[A])
+      extends TransactionalM[Tx, A]
 
-  private final case class FlatMap[Tx, S, A](
+  private final case class TryAction[Tx <: ReadTransactionContext, A](f: Tx => Try[A])
+      extends TransactionalM[Tx, A]
+
+  private final case class FlatMap[Tx <: ReadTransactionContext, S, A](
       source: TransactionalM[Tx, S],
       f: S => TransactionalM[Tx, A])
       extends TransactionalM[Tx, A]
 
-  private final case class RaiseError[Tx, A](ex: Throwable) extends TransactionalM[Tx, A]
+  private final case class RaiseError[Tx <: ReadTransactionContext, A](ex: Throwable)
+      extends TransactionalM[Tx, A]
 
 }
