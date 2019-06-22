@@ -8,7 +8,7 @@ import com.apple.foundationdb.tuple.Tuple
 import com.apple.foundationdb.{KeySelector, KeyValue, Range}
 import com.github.pwliwanow.foundationdb4s.core.internal.CompletableFutureHolder._
 
-import scala.collection.convert.ImplicitConversions._
+import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.Promise
 import scala.util.{Success, Try}
@@ -163,6 +163,7 @@ trait TypedSubspace[Entity, Key] {
       .thenApply[Seq[Entity]] { javaList =>
         javaList
           .iterator()
+          .asScala
           .map(toEntity)
           .toList
       }

@@ -122,6 +122,6 @@ final case class TestError(msg: String) extends RuntimeException
 
 object DatabaseHolder {
   implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val database: Database = FDB.selectAPIVersion(600).open(null, ec)
+  val database: Database = FDB.selectAPIVersion(610).open(null, ec)
   sys.addShutdownHook(database.close())
 }

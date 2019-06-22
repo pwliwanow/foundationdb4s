@@ -3,7 +3,7 @@ import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
 lazy val scala2_12 = "2.12.8"
-lazy val scala2_13 = "2.13.0-M5"
+lazy val scala2_13 = "2.13.0"
 lazy val supportedScalaVersions = List(scala2_12, scala2_13)
 
 ThisBuild / scalaVersion := scala2_12
@@ -11,9 +11,7 @@ ThisBuild / scalaVersion := scala2_12
 lazy val fdb4s = project
   .in(file("."))
   .settings(commonSettings: _*)
-  .settings(
-    skip in publish := true,
-    crossScalaVersions := Nil)
+  .settings(skip in publish := true, crossScalaVersions := Nil)
   .aggregate(akkaStreams, core, example)
 
 lazy val core = project
@@ -63,7 +61,6 @@ lazy val commonSettings = ossPublishSettings ++ Seq(
         "-feature",
         "-language:higherKinds",
         "-language:implicitConversions",
-        "-Xfatal-warnings",
         "-Xlint:inaccessible",
         "-Xlint:infer-any",
         "-Ywarn-dead-code",
@@ -72,9 +69,11 @@ lazy val commonSettings = ossPublishSettings ++ Seq(
         "-Ywarn-unused:locals",
         "-Ywarn-unused:params",
         "-Ywarn-unused:patvars",
-        "-Ywarn-unused:privates")
+        "-Ywarn-unused:privates"
+      )
     val extraOptions =
-      if (scalaVersion.value == scala2_12) List("-Ypartial-unification")
+      // fatal warnings temporarily only in 2.12
+      if (scalaVersion.value == scala2_12) List("-Xfatal-warnings", "-Ypartial-unification")
       else List.empty
     commonScalacOptions ++ extraOptions
   },
