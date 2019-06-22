@@ -1,6 +1,6 @@
 # foundationdb4s
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12)
+[![Latest version](https://index.scala-lang.org/pwliwanow/foundationdb4s/latest.svg)](https://index.scala-lang.org/pwliwanow/foundationdb4s/)
 [![Build Status](https://travis-ci.org/pwliwanow/foundationdb4s.svg?branch=master)](https://travis-ci.org/pwliwanow/foundationdb4s)
 [![codecov](https://codecov.io/gh/pwliwanow/foundationdb4s/branch/master/graph/badge.svg)](https://codecov.io/gh/pwliwanow/foundationdb4s)
 
@@ -9,7 +9,7 @@ It aims to be type-safe and idiomatic for Scala.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val database: Database = FDB.selectAPIVersion(600).open(null, ec)
+val database: Database = FDB.selectAPIVersion(610).open(null, ec)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
 
@@ -111,7 +111,7 @@ Note that if the given `DBIO` did not modify the database, returned `Versionstam
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val database: Database = FDB.selectAPIVersion(600).open(null, ec)
+val database: Database = FDB.selectAPIVersion(610).open(null, ec)
 
 case class EventKey(eventType: String, versionstamp: Versionstamp)
 case class Event(key: EventKey, content: Array[Byte])

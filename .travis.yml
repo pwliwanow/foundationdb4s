@@ -2,15 +2,15 @@ language: scala
 sudo: true
 scala:
   - 2.12.8
-jdk: oraclejdk8
+jdk: openjdk8
 install:
   - sudo apt-get update
   - sudo apt-get -qq -y install wget
   - sudo apt-get -qq -y install python2.7
   - sudo apt-get -qq -y install python
-  - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
-  - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
-  - sudo dpkg -i foundationdb-clients_6.0.15-1_amd64.deb foundationdb-server_6.0.15-1_amd64.deb
+  - wget https://www.foundationdb.org/downloads/6.1.8/ubuntu/installers/foundationdb-clients_6.1.8-1_amd64.deb
+  - wget https://www.foundationdb.org/downloads/6.1.8/ubuntu/installers/foundationdb-server_6.1.8-1_amd64.deb
+  - sudo dpkg -i foundationdb-clients_6.1.8-1_amd64.deb foundationdb-server_6.1.8-1_amd64.deb
 script:
   - sbt test:scalafmt scalafmtSbt coverage +test coverageReport
 after_success:

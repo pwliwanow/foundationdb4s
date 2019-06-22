@@ -17,7 +17,7 @@ import scala.util.Random
 
 object ClassScheduling {
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val database: Database = FDB.selectAPIVersion(600).open(null, executor)
+  val database: Database = FDB.selectAPIVersion(610).open(null, executor)
 
   final case class Attendance(student: String, `class`: Class)
   final case class ClassAvailability(`class`: Class, seatsAvailable: Int)
