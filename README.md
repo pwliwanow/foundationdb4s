@@ -1,6 +1,6 @@
 # foundationdb4s
 
-[![Latest version](https://index.scala-lang.org/pwliwanow/foundationdb4s/latest.svg)](https://index.scala-lang.org/pwliwanow/foundationdb4s/)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pwliwanow.foundationdb4s/foundationdb4s-core_2.12)
 [![Build Status](https://travis-ci.org/pwliwanow/foundationdb4s.svg?branch=master)](https://travis-ci.org/pwliwanow/foundationdb4s)
 [![codecov](https://codecov.io/gh/pwliwanow/foundationdb4s/branch/master/graph/badge.svg)](https://codecov.io/gh/pwliwanow/foundationdb4s)
 
