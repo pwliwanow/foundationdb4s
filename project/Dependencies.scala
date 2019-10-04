@@ -4,7 +4,7 @@ import scala.collection.immutable.Seq
 object Dependencies {
 
   lazy val allAkkaStreamsDependencies: Seq[ModuleID] = {
-    val akkaVersion = "2.5.23"
+    val akkaVersion = "2.5.25"
     val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion
     val akkaStreamsTestKit = "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion
 
@@ -15,7 +15,7 @@ object Dependencies {
   }
 
   lazy val allCoreDependencies: Seq[ModuleID] = {
-    val catsVersion = "2.0.0-M4"
+    val catsVersion = "2.0.0"
     val cats = "org.typelevel" %% "cats-core" % catsVersion
     val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
@@ -25,7 +25,7 @@ object Dependencies {
     val java8CompatVersion = "0.9.0"
     val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
-    val mockitoVersion = "2.28.2"
+    val mockitoVersion = "3.1.0"
     val mockito = "org.mockito" % "mockito-core" % mockitoVersion
 
     val scalaTestVersion = "3.0.8"

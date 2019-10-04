@@ -3,7 +3,7 @@ import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
 lazy val scala2_12 = "2.12.10"
-lazy val scala2_13 = "2.13.0"
+lazy val scala2_13 = "2.13.1"
 lazy val supportedScalaVersions = List(scala2_12, scala2_13)
 
 ThisBuild / scalaVersion := scala2_12
@@ -56,7 +56,7 @@ lazy val example = project
 
 lazy val commonSettings = ossPublishSettings ++ Seq(
   organization := "com.github.pwliwanow.foundationdb4s",
-  scalaVersion := "2.12.8",
+  scalaVersion := scala2_12,
   scalafmtOnCompile := true,
   parallelExecution in ThisBuild := false,
   fork := true,
