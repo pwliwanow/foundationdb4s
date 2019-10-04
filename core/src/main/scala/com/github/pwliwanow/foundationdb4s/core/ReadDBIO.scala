@@ -96,7 +96,8 @@ object ReadDBIO {
       map2(fa, fb)((_, _))
   }
 
-  implicit val readDbioParallel: Parallel[ReadDBIO, Par] = new Parallel[ReadDBIO, Par] {
+  implicit val readDbioParallel: Parallel.Aux[ReadDBIO, Par] = new Parallel[ReadDBIO] {
+    type F[x] = Par[x]
     override def applicative: Applicative[Par] = parApplicative
     override def monad: Monad[ReadDBIO] = readDbioMonad
     override def sequential: Par ~> ReadDBIO = {
