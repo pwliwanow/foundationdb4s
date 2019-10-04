@@ -2,7 +2,7 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
-lazy val scala2_12 = "2.12.8"
+lazy val scala2_12 = "2.12.10"
 lazy val scala2_13 = "2.13.0"
 lazy val supportedScalaVersions = List(scala2_12, scala2_13)
 
@@ -12,14 +12,24 @@ lazy val fdb4s = project
   .in(file("."))
   .settings(commonSettings: _*)
   .settings(skip in publish := true, crossScalaVersions := Nil)
-  .aggregate(akkaStreams, core, example)
+  .aggregate(akkaStreams, core, example, schema)
 
 lazy val core = project
   .in(file("core"))
   .settings(
     commonSettings,
-    name := "foundationdb4s-core",
+    name := "core",
     libraryDependencies ++= allCoreDependencies,
+    crossScalaVersions := supportedScalaVersions
+  )
+
+lazy val schema = project
+  .in(file("schema"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(
+    commonSettings,
+    name := "schema",
+    libraryDependencies ++= allSchemaDependencies,
     crossScalaVersions := supportedScalaVersions
   )
 
@@ -28,7 +38,7 @@ lazy val akkaStreams = project
   .dependsOn(core % "compile->compile;test->test")
   .settings(
     commonSettings,
-    name := "foundationdb4s-akka-streams",
+    name := "akka-streams",
     libraryDependencies ++= allAkkaStreamsDependencies,
     crossScalaVersions := supportedScalaVersions
   )
@@ -38,7 +48,7 @@ lazy val example = project
   .dependsOn(core)
   .settings(
     commonSettings,
-    name := "foundationdb4s-example",
+    name := "example",
     skip in publish := true,
     crossScalaVersions := supportedScalaVersions,
     coverageEnabled := false
@@ -64,10 +74,8 @@ lazy val commonSettings = ossPublishSettings ++ Seq(
         "-Xlint:inaccessible",
         "-Xlint:infer-any",
         "-Ywarn-dead-code",
-        "-Ywarn-unused:implicits",
         "-Ywarn-unused:imports",
         "-Ywarn-unused:locals",
-        "-Ywarn-unused:params",
         "-Ywarn-unused:patvars",
         "-Ywarn-unused:privates"
       )

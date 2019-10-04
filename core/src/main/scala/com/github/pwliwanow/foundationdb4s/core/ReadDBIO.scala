@@ -40,6 +40,8 @@ final case class ReadDBIO[+A] private (private val underlying: TransactionalM[Re
 }
 
 object ReadDBIO {
+  val unit: ReadDBIO[Unit] = pure(())
+
   def failed[A](value: Throwable): ReadDBIO[A] =
     ReadDBIO(TransactionalM.failed[ReadTransaction, A](value))
 

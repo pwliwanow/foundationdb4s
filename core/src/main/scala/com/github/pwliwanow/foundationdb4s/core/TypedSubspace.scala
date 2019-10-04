@@ -127,25 +127,25 @@ trait TypedSubspace[Entity, Key] {
     KeySelector.firstGreaterOrEqual(toSubspaceKey(key))
 
   final def firstGreaterOrEqual(key: Tuple): KeySelector =
-    KeySelector.firstGreaterOrEqual(subspace.pack(key.pack()))
+    KeySelector.firstGreaterOrEqual(subspace.pack(key))
 
   final def firstGreaterThan(key: Key): KeySelector =
     KeySelector.firstGreaterThan(toSubspaceKey(key))
 
   final def firstGreaterThan(key: Tuple): KeySelector =
-    KeySelector.firstGreaterThan(subspace.pack(key.pack()))
+    KeySelector.firstGreaterThan(subspace.pack(key))
 
   final def lastLessOrEqual(key: Key): KeySelector =
     KeySelector.lastLessOrEqual(toSubspaceKey(key))
 
   final def lastLessOrEqual(key: Tuple): KeySelector =
-    KeySelector.lastLessOrEqual(subspace.pack(key.pack()))
+    KeySelector.lastLessOrEqual(subspace.pack(key))
 
   final def lastLessThan(key: Key): KeySelector =
     KeySelector.lastLessThan(toSubspaceKey(key))
 
   final def lastLessThan(key: Tuple): KeySelector =
-    KeySelector.lastLessThan(subspace.pack(key.pack()))
+    KeySelector.lastLessThan(subspace.pack(key))
 
   final def watch(key: Key): DBIO[Promise[Unit]] = {
     watchJava(key).map(_.toPromise)

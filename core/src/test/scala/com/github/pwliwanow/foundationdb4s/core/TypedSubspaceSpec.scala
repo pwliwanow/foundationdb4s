@@ -247,29 +247,29 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     assert(typedSubspace.range(tuple) === subspace.range(tuple))
   }
 
-  it should "create firstGreaterOrEqual keySelector correctly" in {
+  it should "create firstGreaterOrEqual KeySelector correctly" in {
     val obtained = typedSubspace.firstGreaterOrEqual(entityKey)
     val expected = KeySelector.firstGreaterOrEqual(subspace.pack(key))
     assert(obtained === expected)
   }
 
-  it should "create firstGreaterOrEqual keySelector correctly for given tuple" in {
+  it should "create firstGreaterOrEqual KeySelector correctly for given tuple" in {
     val tuple = Tuple.from("01", "Test")
     val obtained = typedSubspace.firstGreaterOrEqual(tuple)
-    val expected = KeySelector.firstGreaterOrEqual(subspace.pack(tuple.pack()))
+    val expected = KeySelector.firstGreaterOrEqual(subspace.pack(tuple))
     assert(obtained === expected)
   }
 
-  it should "create firstGreaterThan keySelector correctly" in {
+  it should "create firstGreaterThan KeySelector correctly" in {
     val obtained = typedSubspace.firstGreaterThan(entityKey)
     val expected = KeySelector.firstGreaterThan(subspace.pack(key))
     assert(obtained === expected)
   }
 
-  it should "create firstGreaterThan keySelector correctly for given tuple" in {
+  it should "create firstGreaterThan KeySelector correctly for given tuple" in {
     val tuple = Tuple.from("01", "Test")
     val obtained = typedSubspace.firstGreaterThan(tuple)
-    val expected = KeySelector.firstGreaterThan(subspace.pack(tuple.pack()))
+    val expected = KeySelector.firstGreaterThan(subspace.pack(tuple))
     assert(obtained === expected)
   }
 
@@ -282,7 +282,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "create lastLessOrEqual keySelector correctly for given tuple" in {
     val tuple = Tuple.from("01", "Test")
     val obtained = typedSubspace.lastLessOrEqual(tuple)
-    val expected = KeySelector.lastLessOrEqual(subspace.pack(tuple.pack()))
+    val expected = KeySelector.lastLessOrEqual(subspace.pack(tuple))
     assert(obtained === expected)
   }
 
@@ -295,7 +295,7 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
   it should "create lastLessThan keySelector correctly for given tuple" in {
     val tuple = Tuple.from("01", "Test")
     val obtained = typedSubspace.lastLessThan(tuple)
-    val expected = KeySelector.lastLessThan(subspace.pack(tuple.pack()))
+    val expected = KeySelector.lastLessThan(subspace.pack(tuple))
     assert(obtained === expected)
   }
 
