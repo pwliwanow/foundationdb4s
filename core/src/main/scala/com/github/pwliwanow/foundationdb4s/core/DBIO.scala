@@ -132,6 +132,8 @@ final case class DBIO[+A] private (private val underlying: TransactionalM[Transa
 }
 
 object DBIO {
+  val unit: DBIO[Unit] = pure(())
+
   def pure[A](value: A): DBIO[A] = {
     DBIO(TransactionalM.pure[Transaction, A](value))
   }

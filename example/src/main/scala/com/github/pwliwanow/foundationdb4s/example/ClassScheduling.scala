@@ -101,7 +101,7 @@ object ClassScheduling {
     for {
       maybeAttendance <- attendanceSubspace.get(Attendance(s, c)).toDBIO
       _ <- maybeAttendance
-        .map(_ => DBIO.pure[Unit](())) // already signed up
+        .map(_ => DBIO.unit) // already signed up
         .getOrElse(enroll)
     } yield ()
   }
@@ -115,7 +115,7 @@ object ClassScheduling {
       } yield ()
     for {
       maybeAttendence <- attendanceSubspace.get(Attendance(s, c)).toDBIO
-      _ <- maybeAttendence.fold[DBIO[Unit]](DBIO.pure(()))(doDropClass)
+      _ <- maybeAttendence.fold[DBIO[Unit]](DBIO.unit)(doDropClass)
     } yield ()
   }
 
@@ -144,7 +144,7 @@ object ClassScheduling {
 
   implicit class ValueHolder[A](value: A) {
     def checkThat(f: A => Boolean)(errorMsg: String): DBIO[Unit] =
-      if (f(value)) DBIO.pure(())
+      if (f(value)) DBIO.unit
       else DBIO.failed(new IllegalStateException(errorMsg))
   }
 
