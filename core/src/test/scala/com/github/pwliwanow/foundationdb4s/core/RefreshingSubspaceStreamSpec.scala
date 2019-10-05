@@ -128,13 +128,13 @@ class RefreshingSubspaceStreamSpec
         any[KeySelector](),
         anyInt(),
         anyBoolean(),
-        any[StreamingMode]()))
-      .thenReturn(iterable1)
+        any[StreamingMode]())).thenReturn(iterable1)
     when(iterable1.iterator()).thenReturn(iterator)
 
-    val res = Try(
-      collectAllAndCloseStream(
-        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
+    val res =
+      Try(
+        collectAllAndCloseStream(
+          RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
 
     assert(res === Failure(exception))
     verify(mockedReadTx, times(1))
@@ -163,12 +163,12 @@ class RefreshingSubspaceStreamSpec
         any[KeySelector](),
         anyInt(),
         anyBoolean(),
-        any[StreamingMode]()))
-      .thenReturn(iterable)
+        any[StreamingMode]())).thenReturn(iterable)
     when(iterable.iterator()).thenReturn(iterator)
-    val res = Try(
-      collectAllAndCloseStream(
-        RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
+    val res =
+      Try(
+        collectAllAndCloseStream(
+          RefreshingSubspaceStream.fromTypedSubspace(typedSubspace, stubbedDb)))
     assert(res.isFailure)
     assert(res.asInstanceOf[Failure[_]].exception.isInstanceOf[TooManyFailsException])
   }
@@ -269,16 +269,15 @@ class RefreshingSubspaceStreamSpec
         any[KeySelector](),
         anyInt(),
         anyBoolean(),
-        any[StreamingMode]()))
-      .thenAnswer { invocation: InvocationOnMock =>
-        val from = invocation.getArgument[KeySelector](0)
-        val to = invocation.getArgument[KeySelector](1)
-        val limit = invocation.getArgument[Int](2)
-        val reverse = invocation.getArgument[Boolean](3)
-        val mode = invocation.getArgument[StreamingMode](4)
-        val realIterable = tx.getRange(from, to, limit, reverse, mode)
-        slowedDownIterable(realIterable)
-      }
+        any[StreamingMode]())).thenAnswer { invocation: InvocationOnMock =>
+      val from = invocation.getArgument[KeySelector](0)
+      val to = invocation.getArgument[KeySelector](1)
+      val limit = invocation.getArgument[Int](2)
+      val reverse = invocation.getArgument[Boolean](3)
+      val mode = invocation.getArgument[StreamingMode](4)
+      val realIterable = tx.getRange(from, to, limit, reverse, mode)
+      slowedDownIterable(realIterable)
+    }
     stubbedDb
   }
 

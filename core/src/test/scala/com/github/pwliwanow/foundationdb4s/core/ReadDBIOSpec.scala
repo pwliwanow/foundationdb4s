@@ -112,8 +112,7 @@ class ReadDBIOSpec extends FoundationDbSpec {
       Table(
         ("ReadDBIO", "Expected DBIO"),
         (ReadDBIO.pure(10), DBIO.pure(10)),
-        (ReadDBIO.failed[Int](TestError("Failed")), DBIO.failed[Int](TestError("Failed")))
-      )
+        (ReadDBIO.failed[Int](TestError("Failed")), DBIO.failed[Int](TestError("Failed"))))
     forAll(table) { (readDbio: ReadDBIO[Int], dbio: DBIO[Int]) =>
       val lhs = readDbio.toDBIO
       val rhs = dbio
