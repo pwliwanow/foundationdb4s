@@ -80,8 +80,8 @@ as `KeySchema` for a given subspace. E.g. given KeySchema: `String :: Int :: HNi
 it's possible to call `getRange(String :: HNil)`, but `getRange(Int :: HNil)` will fail to compile.
 
 ### Schema evolution and encoders/decoders derivation
-Module `schema` also provides support for automatic derivation of encoders and decoders, 
-derived encoders support schema evolution. 
+Module `schema` also provides support for automatic derivation of encoders and decoders; 
+derived codecs support schema evolution. 
 
 E.g. if key was written using `TupleEncoder[String :: HNil]`, it is possible to read the key
  with `TupleDecoder[String :: Option[A] :: HNil]` (where `A` is any type for which `TupleDecoder[A]` exist) or 
