@@ -91,12 +91,7 @@ lazy val commonSettings = ossPublishSettings ++ Seq(
 )
 
 lazy val ossPublishSettings = Seq(
-  publishTo := Some(
-    if (isSnapshot.value)
-      Opts.resolver.sonatypeSnapshots
-    else
-      Opts.resolver.sonatypeStaging
-  ),
+  publishTo := sonatypePublishToBundle.value,
   publishArtifact in Test := false,
   publishMavenStyle := true,
   sonatypeProfileName := "com.github.pwliwanow",
@@ -141,7 +136,7 @@ lazy val ossPublishSettings = Seq(
     releaseStepCommandAndRemaining("+publishSigned"),
     setNextVersion,
     commitNextVersion,
-    releaseStepCommand("sonatypeRelease"),
+    releaseStepCommand("sonatypeBundleRelease"),
     pushChanges
   )
 )
