@@ -1,13 +1,16 @@
 package com.github.pwliwanow.foundationdb4s.example
 
-import java.nio.ByteBuffer
+import java.time.LocalTime
 
 import cats.instances.list._
 import cats.syntax.traverse._
 import com.apple.foundationdb.{Database, FDB}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
-import com.github.pwliwanow.foundationdb4s.core.{DBIO, ReadDBIO, TypedSubspace}
+import com.github.pwliwanow.foundationdb4s.core.{DBIO, ReadDBIO}
+import com.github.pwliwanow.foundationdb4s.example.Model.{Attendance, Class}
+import com.github.pwliwanow.foundationdb4s.schema.{Schema, TupleDecoder, TupleEncoder}
+import shapeless.{::, HNil}
 
 import scala.collection.immutable.Seq
 import scala.collection.mutable.ArrayBuffer
@@ -15,59 +18,102 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Random
 
+object Model {
+  object ClassLevel extends Enumeration {
+    type ClassLevel = Value
+    val Intro, ForDummies, Remedial, `101`, `201`, `301`, Mastery, Lab, Seminar = Value
+  }
+  object ClassType extends Enumeration {
+    type ClassType = Value
+    val Chem, Bio, CS, Geometry, Calc, Alg, Film, Music, Art, Dance = Value
+  }
+  import ClassLevel._
+  import ClassType._
+
+  final case class Class(time: LocalTime, `type`: ClassType, level: ClassLevel)
+  final case class StudentId(value: String) extends AnyVal
+  final case class Attendance(studentId: StudentId, `class`: Class)
+  final case class ClassAvailability(`class`: Class, seatsAvailable: Int)
+}
+import Model._
+import ClassLevel._
+import ClassType._
+
+object Codecs {
+  implicit lazy val classLevelDec = implicitly[TupleDecoder[String]].map(ClassLevel.withName)
+  implicit lazy val classLevelEnc =
+    implicitly[TupleEncoder[String]].contramap[ClassLevel](_.toString)
+
+  implicit lazy val classTypeDec = implicitly[TupleDecoder[String]].map(ClassType.withName)
+  implicit lazy val classTypeEnc =
+    implicitly[TupleEncoder[String]].contramap[ClassType](_.toString)
+
+  implicit lazy val localTimeDec = implicitly[TupleDecoder[Long]].map(LocalTime.ofSecondOfDay)
+  implicit lazy val localTimeEnc =
+    implicitly[TupleEncoder[Long]].contramap[LocalTime](_.toSecondOfDay.toLong)
+
+  implicit lazy val classDec = TupleDecoder.derive[Class]
+  implicit lazy val classEnc = TupleEncoder.derive[Class]
+
+  implicit lazy val attendanceDec = TupleDecoder.derive[Attendance]
+  implicit lazy val attendanceEnc = TupleEncoder.derive[Attendance]
+
+  implicit lazy val classAvailabilityDec = TupleDecoder.derive[ClassAvailability]
+  implicit lazy val classAvailabilityEnc = TupleEncoder.derive[ClassAvailability]
+}
+import Codecs._
+
+object Dao {
+  object AttendanceSchema extends Schema {
+    type Entity = Attendance
+    type KeySchema = StudentId :: Class :: HNil
+    type ValueSchema = HNil
+    override def toKey(entity: Attendance): KeySchema =
+      entity.studentId :: entity.`class` :: HNil
+    override def toValue(entity: Attendance): ValueSchema =
+      HNil
+    override def toEntity(key: KeySchema, valueRepr: HNil): Attendance = {
+      val student :: c :: HNil = key
+      Attendance(student, c)
+    }
+  }
+
+  object ClassAvailabilitySchema extends Schema {
+    type Entity = ClassAvailability
+    type KeySchema = LocalTime :: ClassType :: ClassLevel :: HNil
+    type ValueSchema = Int :: HNil
+    override def toKey(entity: ClassAvailability): KeySchema =
+      entity.`class`.time :: entity.`class`.`type` :: entity.`class`.level :: HNil
+    override def toValue(entity: ClassAvailability): ValueSchema =
+      entity.seatsAvailable :: HNil
+    override def toEntity(key: KeySchema, valueRepr: ValueSchema): ClassAvailability = {
+      val classTime :: classType :: classLevel :: HNil = key
+      val seatsAvailable :: HNil = valueRepr
+      ClassAvailability(Class(classTime, classType, classLevel), seatsAvailable)
+    }
+  }
+}
+import Dao._
+
 object ClassScheduling {
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
   val database: Database = FDB.selectAPIVersion(610).open(null, executor)
 
-  final case class Attendance(student: String, `class`: Class)
-  final case class ClassAvailability(`class`: Class, seatsAvailable: Int)
-  final case class Class(time: String, `type`: String, level: String)
+  val schedulingSubspace = new Subspace(Tuple.from("class-scheduling"))
 
-  val attendanceSubspace: TypedSubspace[Attendance, Attendance] =
-    new TypedSubspace[Attendance, Attendance] {
-      override val subspace: Subspace = new Subspace(Tuple.from("class-scheduling", "attendence"))
-      override def toKey(entity: Attendance): Attendance = entity
-      override def toTupledKey(key: Attendance): Tuple = {
-        Tuple.from(key.student, key.`class`.time, key.`class`.`type`, key.`class`.level)
-      }
-      override def toRawValue(entity: Attendance): Array[Byte] = Array.emptyByteArray
-      override def toKey(tupledKey: Tuple): Attendance = {
-        val c = Class(
-          time = tupledKey.getString(1),
-          `type` = tupledKey.getString(2),
-          level = tupledKey.getString(3))
-        Attendance(student = tupledKey.getString(0), `class` = c)
-      }
-
-      override protected def toEntity(key: Attendance, value: Array[Byte]): Attendance = key
-    }
-
-  val classAvailabilitySubspace: TypedSubspace[ClassAvailability, Class] =
-    new TypedSubspace[ClassAvailability, Class] {
-      override val subspace: Subspace = new Subspace(Tuple.from("class-scheduling", "class"))
-      override def toKey(entity: ClassAvailability): Class = entity.`class`
-      override def toTupledKey(key: Class): Tuple =
-        Tuple.from(key.time, key.`type`, key.level)
-      override def toRawValue(entity: ClassAvailability): Array[Byte] =
-        encodeInt(entity.seatsAvailable)
-      override def toKey(tupledKey: Tuple): Class =
-        Class(
-          time = tupledKey.getString(0),
-          `type` = tupledKey.getString(1),
-          level = tupledKey.getString(2))
-      override def toEntity(key: Class, value: Array[Byte]): ClassAvailability =
-        ClassAvailability(`class` = key, seatsAvailable = decodeInt(value))
-    }
-
-  val levels =
-    List("intro", "for dummies", "remedial", "101", "201", "301", "mastery", "lab", "seminar")
-  val types = List("chem", "bio", "cs", "geometry", "calc", "alg", "film", "music", "art", "dance")
-  val times: Seq[String] = (2 to 19).map(h => s"$h:00")
+  val attendanceNamespace: AttendanceSchema.Namespace = {
+    val subspace = schedulingSubspace.subspace(Tuple.from("attendance"))
+    new AttendanceSchema.Namespace(subspace)
+  }
+  val classAvailabilityNamespace: ClassAvailabilitySchema.Namespace = {
+    val subspace = schedulingSubspace.subspace(Tuple.from("class"))
+    new ClassAvailabilitySchema.Namespace(subspace)
+  }
 
   val classes: List[Class] = for {
-    level <- levels
-    tpe <- types
-    time <- times
+    level <- ClassLevel.values.toList
+    tpe <- ClassType.values.toList
+    time <- (2 to 19).map(h => LocalTime.of(h, 0))
   } yield Class(time = time, `type` = tpe, level = level)
 
   val classAvailabilities: List[ClassAvailability] =
@@ -75,72 +121,61 @@ object ClassScheduling {
 
   def init(): Future[Unit] = {
     val dbio: DBIO[Unit] = for {
-      _ <- attendanceSubspace.clear()
-      _ <- classAvailabilitySubspace.clear()
-      _ <- classAvailabilities.map(classAvailabilitySubspace.set).sequence
+      _ <- attendanceNamespace.clear()
+      _ <- classAvailabilityNamespace.clear()
+      _ <- classAvailabilities.map(classAvailabilityNamespace.set).sequence
     } yield ()
     dbio.transact(database)
   }
 
   def availableClasses: ReadDBIO[Seq[ClassAvailability]] = {
-    classAvailabilitySubspace
-      .getRange(classAvailabilitySubspace.range())
+    classAvailabilityNamespace
+      .getRange(classAvailabilityNamespace.range())
       .map(classes => classes.filter(_.seatsAvailable > 0))
   }
 
-  def signup(s: String, c: Class): DBIO[Unit] = {
+  def signup(studentId: StudentId, c: Class): DBIO[Unit] = {
     def enroll: DBIO[Unit] =
       for {
         ca <- getClassAvailability(c)
         _ <- ca.checkThat(_.seatsAvailable > 0)("No remaining seats")
-        attendances <- attendanceSubspace.getRange(attendanceSubspace.range(Tuple.from(s))).toDBIO
+        attendances <- attendanceNamespace.getRange(Tuple1(studentId)).toDBIO
         _ <- attendances.checkThat(_.size < 5)("Too many classes")
-        _ <- classAvailabilitySubspace.set(ca.copy(seatsAvailable = ca.seatsAvailable - 1))
-        _ <- attendanceSubspace.set(Attendance(s, ca.`class`))
+        _ <- classAvailabilityNamespace.set(ca.copy(seatsAvailable = ca.seatsAvailable - 1))
+        _ <- attendanceNamespace.set(Attendance(studentId, ca.`class`))
       } yield ()
     for {
-      maybeAttendance <- attendanceSubspace.get(Attendance(s, c)).toDBIO
+      maybeAttendance <- attendanceNamespace.getRow((studentId, c)).toDBIO
       _ <- maybeAttendance
         .map(_ => DBIO.unit) // already signed up
         .getOrElse(enroll)
     } yield ()
   }
 
-  def drop(s: String, c: Class): DBIO[Unit] = {
+  def drop(studentId: StudentId, c: Class): DBIO[Unit] = {
     def doDropClass(a: Attendance): DBIO[Unit] =
       for {
         ca <- getClassAvailability(a.`class`)
-        _ <- classAvailabilitySubspace.set(ca.copy(seatsAvailable = ca.seatsAvailable - 1))
-        _ <- attendanceSubspace.clear()
+        _ <- classAvailabilityNamespace.set(ca.copy(seatsAvailable = ca.seatsAvailable - 1))
+        _ <- attendanceNamespace.clear()
       } yield ()
     for {
-      maybeAttendence <- attendanceSubspace.get(Attendance(s, c)).toDBIO
-      _ <- maybeAttendence.fold[DBIO[Unit]](DBIO.unit)(doDropClass)
+      maybeAttendance <- attendanceNamespace.getRow((studentId, c)).toDBIO
+      _ <- maybeAttendance.fold[DBIO[Unit]](DBIO.unit)(doDropClass)
     } yield ()
   }
 
-  def switchClasses(s: String, oldC: Class, newC: Class): DBIO[Unit] =
+  def switchClasses(studentId: StudentId, oldC: Class, newC: Class): DBIO[Unit] =
     for {
-      _ <- drop(s, oldC)
-      _ <- signup(s, newC)
+      _ <- drop(studentId, oldC)
+      _ <- signup(studentId, newC)
     } yield ()
 
   private def getClassAvailability(c: Class): DBIO[ClassAvailability] =
     for {
-      maybeClass <- classAvailabilitySubspace.get(c).toDBIO
+      maybeClass <- classAvailabilityNamespace.getRow(c).toDBIO
       _ <- maybeClass.checkThat(_.isDefined)("Class does not exist")
     } yield maybeClass.get
-
-  private def encodeInt(value: Int): Array[Byte] = {
-    val output = new Array[Byte](4)
-    ByteBuffer.wrap(output).putInt(value)
-    output
-  }
-
-  private def decodeInt(value: Array[Byte]): Int = {
-    if (value.length != 4) throw new IllegalArgumentException("Array must be of size 4")
-    ByteBuffer.wrap(value).getInt
-  }
 
   implicit class ValueHolder[A](value: A) {
     def checkThat(f: A => Boolean)(errorMsg: String): DBIO[Unit] =
@@ -187,7 +222,7 @@ object ClassScheduling {
   final case object Drop extends Operation
 
   private def simulateStudents(i: Int, ops: Int): Future[Unit] = {
-    val studentID = i.toString
+    val studentId = StudentId(s"s${i.toString}")
     var allClasses: Seq[ClassAvailability] = classAvailabilities
     val myClasses = ArrayBuffer.empty[ClassAvailability]
     val rand = new Random()
@@ -208,19 +243,19 @@ object ClassScheduling {
         _ <- mood match {
           case Add =>
             val c = allClasses(rand.nextInt(allClasses.size))
-            signup(studentID, c.`class`)
+            signup(studentId, c.`class`)
               .transact(database)
               .map(_ => myClasses += c)
           case Drop =>
             val index = rand.nextInt(myClasses.size)
             val c = myClasses(index)
-            drop(studentID, c.`class`).transact(database).map(_ => myClasses.remove(index))
+            drop(studentId, c.`class`).transact(database).map(_ => myClasses.remove(index))
           case Switch =>
             val oldCIndex = rand.nextInt(myClasses.size)
             val newCIndex = rand.nextInt(allClasses.size)
             val oldC = myClasses(oldCIndex)
             val newC = allClasses(newCIndex)
-            switchClasses(studentID, oldC.`class`, newC.`class`)
+            switchClasses(studentId, oldC.`class`, newC.`class`)
               .transact(database)
               .map { _ =>
                 myClasses.remove(oldCIndex)

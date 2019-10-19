@@ -45,7 +45,7 @@ lazy val akkaStreams = project
 
 lazy val example = project
   .in(file("example"))
-  .dependsOn(core)
+  .dependsOn(schema)
   .settings(
     commonSettings,
     name := "example",
