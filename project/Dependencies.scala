@@ -19,7 +19,7 @@ object Dependencies {
     val cats = "org.typelevel" %% "cats-core" % catsVersion
     val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
-    val foundationDbVersion = "6.1.9"
+    val foundationDbVersion = "6.2.10"
     val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion
 
     val java8CompatVersion = "0.9.0"
