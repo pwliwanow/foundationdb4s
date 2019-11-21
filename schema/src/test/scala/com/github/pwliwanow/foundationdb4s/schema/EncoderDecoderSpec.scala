@@ -8,7 +8,6 @@ import com.github.pwliwanow.foundationdb4s.schema.TestCodecs.Age
 import org.scalatest.FlatSpec
 
 object TestCodecs {
-
   case class Age(value: Int) extends AnyVal
 
   case class Inner(age: Age)
@@ -42,7 +41,6 @@ object OverridenCodecs {
 }
 
 class EncoderDecoderSpec extends FlatSpec {
-
   it should "encode and decode back values with missing values" in {
     import TestCodecs._
     val value =
@@ -262,5 +260,4 @@ class EncoderDecoderSpec extends FlatSpec {
   }
 
   private def decodeInt(bytes: Array[Byte]): Int = ByteBuffer.wrap(bytes).getInt
-
 }

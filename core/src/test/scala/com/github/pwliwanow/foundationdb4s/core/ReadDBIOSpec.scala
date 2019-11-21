@@ -13,7 +13,6 @@ import scala.concurrent.blocking
 import scala.util.Try
 
 class ReadDBIOSpec extends FoundationDbSpec {
-
   private val monadLaws = MonadLaws[ReadDBIO]
   private val applicativeLaws = ApplicativeLaws[ReadDBIO.Par]
   private val parLaws = ParallelLaws[ReadDBIO, ReadDBIO.Par]
@@ -226,5 +225,4 @@ class ReadDBIOSpec extends FoundationDbSpec {
   private def assertParDbioEq[A](isEq: IsEq[ReadDBIO.Par[A]]): Assertion = {
     assertReadDbioEq(IsEq(ReadDBIO.Par.unwrap(isEq.lhs), ReadDBIO.Par.unwrap(isEq.rhs)))
   }
-
 }

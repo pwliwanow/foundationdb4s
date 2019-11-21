@@ -2,7 +2,6 @@ import sbt._
 import scala.collection.immutable.Seq
 
 object Dependencies {
-
   lazy val allAkkaStreamsDependencies: Seq[ModuleID] = {
     val akkaVersion = "2.5.26"
     val akkaStreams = "com.typesafe.akka" %% "akka-stream" % akkaVersion

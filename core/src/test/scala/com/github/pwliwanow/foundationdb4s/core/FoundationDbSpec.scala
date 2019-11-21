@@ -111,7 +111,6 @@ trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with 
     case _ =>
       assert(left === right)
   }
-
 }
 
 final case class FriendEntity(ofUserId: Long, addedAt: Instant, friendId: Long, friendName: String)

@@ -15,7 +15,6 @@ trait Prefix[L <: HList, Prefix <: HList] extends Serializable {
 object Prefix extends PrefixDerivation
 
 trait PrefixDerivation {
-
   implicit def hlistPrefixNil[L <: HList]: Prefix[L, HNil] = new Prefix[L, HNil] {
     override def apply(x: L): HNil = HNil
   }

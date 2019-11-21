@@ -178,5 +178,4 @@ private final class SubspaceStream(
   }
 
   private def closeTx(): Unit = Try(tx.foreach(_.close())).getOrElse(())
-
 }

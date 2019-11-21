@@ -61,11 +61,9 @@ private[foundationdb4s] abstract class TransactionalM[Tx <: ReadTransactionConte
         }
     }
   }
-
 }
 
 private[foundationdb4s] object TransactionalM {
-
   private[foundationdb4s] def pure[Tx <: ReadTransactionContext, A](
       value: A): TransactionalM[Tx, A] = {
     Pure(value)
@@ -103,5 +101,4 @@ private[foundationdb4s] object TransactionalM {
 
   private final case class RaiseError[Tx <: ReadTransactionContext, A](ex: Throwable)
       extends TransactionalM[Tx, A]
-
 }

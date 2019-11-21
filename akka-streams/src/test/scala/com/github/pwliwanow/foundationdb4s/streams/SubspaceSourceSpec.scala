@@ -13,7 +13,6 @@ import scala.concurrent.Future
 import scala.util.{Failure, Try}
 
 class SubspaceSourceSpec extends FoundationDbStreamsSpec {
-
   private val entity =
     FriendEntity(
       ofUserId = 1L,
@@ -92,5 +91,4 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec {
   private def entityFromInt(i: Int): FriendEntity = {
     entity.copy(addedAt = entity.addedAt.plusSeconds(i.toLong), friendId = entity.friendId + i)
   }
-
 }

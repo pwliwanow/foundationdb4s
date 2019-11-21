@@ -29,7 +29,6 @@ trait TupleDecoder[A] { self =>
 }
 
 object TupleDecoder extends BasicDecodersProtocol {
-
   /** Derives [[TupleDecoder]] for [[A]] type parameter.
     *
     * Derivation will succeed only if there exist implicit
@@ -39,7 +38,6 @@ object TupleDecoder extends BasicDecodersProtocol {
 }
 
 trait BasicDecodersProtocol {
-
   implicit object IntDecoder extends TupleDecoder[Int] {
     override def decode(tuple: Tuple): Int = decode(tuple, 0)
     override def decode(tuple: Tuple, index: Int): Int = decodeInt(tuple.getBytes(index))
@@ -101,5 +99,4 @@ trait BasicDecodersProtocol {
     if (value.length != 4) throw new IllegalArgumentException("Array must be of size 4")
     ByteBuffer.wrap(value).getInt
   }
-
 }

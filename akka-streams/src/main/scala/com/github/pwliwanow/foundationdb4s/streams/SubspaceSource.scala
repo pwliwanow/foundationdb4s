@@ -63,7 +63,6 @@ object SubspaceSource {
 private final class SubspaceSource[Entity](
     createStream: ExecutionContextExecutor => RefreshingSubspaceStream[Entity])
     extends GraphStage[SourceShape[Entity]] {
-
   private val out: Outlet[Entity] = Outlet("SubspaceSource.out")
 
   override def shape: SourceShape[Entity] = SourceShape(out)
@@ -73,5 +72,4 @@ private final class SubspaceSource[Entity](
       override protected def endReached(): Unit = completeStage()
     }
   }
-
 }

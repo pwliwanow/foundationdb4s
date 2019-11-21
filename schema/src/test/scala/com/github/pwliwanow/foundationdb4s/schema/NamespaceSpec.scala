@@ -29,7 +29,6 @@ object UserSchema extends Schema {
     val lastName :: city :: yearOfBirth :: HNil = key
     User(UserKey(lastName, city, yearOfBirth), registeredAt)
   }
-
 }
 
 class NamespaceSpec extends FoundationDbSpec { spec =>
@@ -263,5 +262,4 @@ class NamespaceSpec extends FoundationDbSpec { spec =>
       }
     }
   }
-
 }

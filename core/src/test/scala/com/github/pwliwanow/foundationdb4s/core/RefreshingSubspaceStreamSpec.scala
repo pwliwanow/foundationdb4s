@@ -25,7 +25,6 @@ class RefreshingSubspaceStreamSpec
     extends FoundationDbSpec
     with MockitoSugar
     with BeforeAndAfterAll {
-
   private val entity =
     FriendEntity(
       ofUserId = 1L,
@@ -301,5 +300,4 @@ class RefreshingSubspaceStreamSpec
       override def cancel(): Unit = underlying.cancel()
     }
   }
-
 }

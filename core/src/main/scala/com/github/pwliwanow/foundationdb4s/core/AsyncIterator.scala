@@ -11,7 +11,6 @@ import scala.compat.java8.FutureConverters._
   * - it does not extend [[java.util.Iterator]], so it also does not expose blocking `hasNext()` operation
   */
 trait AsyncIterator[A] {
-
   def onHasNext(): Future[Boolean]
 
   /** Similar to [[FdbAsyncIterator.hasNext]] method.
@@ -24,7 +23,6 @@ trait AsyncIterator[A] {
 
   /** Cancels any outstanding asynchronous work associated with this [[AsyncIterator]]. */
   def cancel(): Unit
-
 }
 
 object AsyncIterator {
