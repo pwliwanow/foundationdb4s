@@ -11,7 +11,6 @@ import scala.util.Try
   * otherwise it would not be possible to use [[Versionstamp]] correctly.
   */
 trait SubspaceWithVersionstampedValues[Entity, Key] extends TypedSubspace[Entity, Key] {
-
   protected def extractVersionstamp(entity: Entity): Versionstamp
   protected def toTupledValue(entity: Entity): Tuple
   protected def toEntity(key: Key, tupledValue: Tuple): Entity
@@ -35,5 +34,4 @@ trait SubspaceWithVersionstampedValues[Entity, Key] extends TypedSubspace[Entity
       else Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, packedKey, packedValue))
     }
   }
-
 }

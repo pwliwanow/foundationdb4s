@@ -10,7 +10,6 @@ import com.github.pwliwanow.foundationdb4s.core.FriendEntity
 import scala.concurrent.duration._
 
 class InfinitePollingSubspaceSourceSpec extends FoundationDbStreamsSpec {
-
   private val entity =
     FriendEntity(
       ofUserId = 1L,
@@ -42,5 +41,4 @@ class InfinitePollingSubspaceSourceSpec extends FoundationDbStreamsSpec {
   private def entityFromInt(i: Int): FriendEntity = {
     entity.copy(addedAt = entity.addedAt.plusSeconds(i.toLong), friendId = entity.friendId + i)
   }
-
 }

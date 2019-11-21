@@ -23,7 +23,6 @@ abstract class ReprEncoder[A] extends TupleEncoder[A]
 
 /** Provides automatic derivation for HList-based structures. */
 object ReprEncoder {
-
   implicit object HnilEncoder extends ReprEncoder[HNil] {
     override def encode(value: HNil): Tuple = new Tuple()
     override def encode(value: HNil, acc: Tuple, preceedingNulls: Int): (Tuple, Int) =
@@ -43,5 +42,4 @@ object ReprEncoder {
       tEncoder.value.encode(t, hEncoded, numberOfNulls)
     }
   }
-
 }

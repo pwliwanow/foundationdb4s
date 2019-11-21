@@ -14,7 +14,6 @@ import scala.concurrent.blocking
 import scala.util.{Failure, Success, Try}
 
 class DBIOSpec extends FoundationDbSpec {
-
   private val monadLaws = MonadLaws[DBIO]
   private val applicativeLaws = ApplicativeLaws[DBIO.Par]
   private val parLaws = ParallelLaws[DBIO, DBIO.Par]
@@ -253,5 +252,4 @@ class DBIOSpec extends FoundationDbSpec {
   private def assertParDbioEq[A](isEq: IsEq[DBIO.Par[A]]): Assertion = {
     assertDbioEq(IsEq(Par.unwrap(isEq.lhs), Par.unwrap(isEq.rhs)))
   }
-
 }

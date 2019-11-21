@@ -44,5 +44,4 @@ class SubspaceWithVersionstampedKeysSpec extends FoundationDbSpec { spec =>
       assert(futureResult.await === Some(Event(versionstamp, value)))
     }
   }
-
 }

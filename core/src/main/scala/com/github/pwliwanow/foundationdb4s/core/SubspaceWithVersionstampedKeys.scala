@@ -8,7 +8,6 @@ import scala.util.Try
   * whose Keys contain [[Versionstamp]].
   */
 trait SubspaceWithVersionstampedKeys[Entity, Key] extends TypedSubspace[Entity, Key] {
-
   protected def extractVersionstamp(key: Key): Versionstamp
 
   override def toSubspaceKey(key: Key): Array[Byte] = {
@@ -32,5 +31,4 @@ trait SubspaceWithVersionstampedKeys[Entity, Key] extends TypedSubspace[Entity, 
       else Try(tx.mutate(MutationType.SET_VERSIONSTAMPED_KEY, packedKey, packedValue))
     }
   }
-
 }

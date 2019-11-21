@@ -67,5 +67,4 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
 
   private def createFailStageCallback(): AsyncCallback[Throwable] =
     getAsyncCallback[Throwable](failStage)
-
 }

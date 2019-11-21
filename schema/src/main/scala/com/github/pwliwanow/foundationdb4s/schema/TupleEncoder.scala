@@ -37,7 +37,6 @@ trait TupleEncoder[A] { self =>
 }
 
 object TupleEncoder extends BasicEncoders {
-
   /** Derives [[TupleEncoder]] for [[A]] type parameter.
     *
     * Derivation will succeed only if there exist implicit

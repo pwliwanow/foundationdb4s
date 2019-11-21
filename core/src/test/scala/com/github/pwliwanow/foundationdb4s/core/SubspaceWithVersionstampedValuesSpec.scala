@@ -41,5 +41,4 @@ class SubspaceWithVersionstampedValuesSpec extends FoundationDbSpec { spec =>
       assert(result === Some(Event(key, versionstamp)))
     }
   }
-
 }

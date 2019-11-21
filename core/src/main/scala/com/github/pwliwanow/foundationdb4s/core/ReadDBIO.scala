@@ -12,7 +12,6 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 final case class ReadDBIO[+A] private (private val underlying: TransactionalM[ReadTransaction, A]) {
-
   def map[B](f: A => B): ReadDBIO[B] = {
     ReadDBIO(underlying.map(f))
   }
@@ -111,5 +110,4 @@ object ReadDBIO {
       }
     }
   }
-
 }

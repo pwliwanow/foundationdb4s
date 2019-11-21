@@ -339,5 +339,4 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
     val v = new Tuple().add(entity.friendId).add(entity.friendName)
     k -> v
   }
-
 }

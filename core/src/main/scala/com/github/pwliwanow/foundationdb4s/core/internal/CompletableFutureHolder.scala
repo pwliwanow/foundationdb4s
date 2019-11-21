@@ -12,7 +12,6 @@ private[foundationdb4s] object CompletableFutureHolder {
 
 private[foundationdb4s] class CompletableFutureHolder[A](val value: CompletableFuture[A])
     extends AnyVal {
-
   def completeWithTry(result: Try[A]): Boolean = result match {
     case Success(v) => value.complete(v)
     case Failure(t) => value.completeExceptionally(t)
@@ -52,5 +51,4 @@ private[foundationdb4s] class CompletableFutureHolder[A](val value: CompletableF
   def zip[B](other: CompletableFuture[B]): CompletableFuture[(A, B)] = {
     value.thenCompose(a => other.thenApply(b => (a, b)))
   }
-
 }

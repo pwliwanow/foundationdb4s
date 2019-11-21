@@ -24,7 +24,6 @@ abstract class ReprDecoder[A] extends TupleDecoder[A]
 
 /** Provides automatic derivation for HList-based structures. */
 object ReprDecoder {
-
   implicit object HnilDecoder extends ReprDecoder[HNil] {
     override def decode(tuple: Tuple): HNil = HNil
     override def decode(tuple: Tuple, index: Int): HNil = HNil

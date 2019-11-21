@@ -21,7 +21,6 @@ import scala.concurrent.duration.FiniteDuration
   * - poll subspace after it reaches the end
   */
 object InfinitePollingSubspaceSource {
-
   def from[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
       database: Database,
@@ -69,7 +68,6 @@ private final class InfinitePollingSubspaceSource[Entity](
     pollingInterval: FiniteDuration,
     createStream: ExecutionContextExecutor => RefreshingSubspaceStream[Entity])
     extends GraphStage[SourceShape[Entity]] {
-
   private val out: Outlet[Entity] = Outlet("InfinitePollingSubspaceSource.out")
 
   override def shape: SourceShape[Entity] = SourceShape(out)

@@ -45,7 +45,6 @@ trait Schema { schema =>
       keyDecoder: ReprDecoder[KeySchema],
       valueDecoder: ReprDecoder[ValueSchema])
       extends TypedSubspace[Entity, KeySchema] {
-
     final override def toKey(entity: Entity): KeySchema = schema.toKey(entity)
 
     final override def toRawValue(entity: Entity): Array[Byte] =
@@ -187,7 +186,5 @@ trait Schema { schema =>
         new Range(start, end)
       }
     }
-
   }
-
 }
