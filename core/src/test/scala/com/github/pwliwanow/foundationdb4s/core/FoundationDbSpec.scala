@@ -7,15 +7,16 @@ import com.apple.foundationdb.{Database, FDB, KeySelector}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
 import org.scalactic.Equality
-import org.scalatest.{Assertion, BeforeAndAfterEach, FlatSpecLike}
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.annotation.tailrec
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
+import org.scalatest.flatspec.AnyFlatSpecLike
 
-trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
+trait FoundationDbSpec extends AnyFlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
   spec =>
 
   implicit def ec: ExecutionContextExecutor = DatabaseHolder.ec

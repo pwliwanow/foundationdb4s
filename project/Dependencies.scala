@@ -27,7 +27,7 @@ object Dependencies {
     val mockitoVersion = "3.1.0"
     val mockito = "org.mockito" % "mockito-core" % mockitoVersion
 
-    val scalaTestVersion = "3.0.8"
+    val scalaTestVersion = "3.1.0"
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
     val coreDependencies = List(cats, foundationDb, java8Compat)
