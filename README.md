@@ -47,7 +47,7 @@ please create an issue.
 ## Quickstart with sbt
 To get started you can add the following dependencies to your project:
 ```scala
-val fdb4sVersion = "0.10.1"
+val fdb4sVersion = "0.11.0"
 
 libraryDependencies ++= Seq(
   "com.github.pwliwanow.foundationdb4s" %% "core" % fdb4sVersion,
