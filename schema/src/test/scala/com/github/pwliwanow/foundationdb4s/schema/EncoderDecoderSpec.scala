@@ -5,7 +5,7 @@ import java.time.Instant
 
 import com.apple.foundationdb.tuple.Tuple
 import com.github.pwliwanow.foundationdb4s.schema.TestCodecs.Age
-import org.scalatest.FlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 
 object TestCodecs {
   case class Age(value: Int) extends AnyVal
@@ -40,7 +40,7 @@ object OverridenCodecs {
     implicitly[TupleEncoder[Long]].contramap[Int](_.toLong)
 }
 
-class EncoderDecoderSpec extends FlatSpec {
+class EncoderDecoderSpec extends AnyFlatSpec {
   it should "encode and decode back values with missing values" in {
     import TestCodecs._
     val value =
