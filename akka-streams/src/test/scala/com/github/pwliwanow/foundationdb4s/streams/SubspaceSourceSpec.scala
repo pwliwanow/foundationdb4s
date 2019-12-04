@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{ActorAttributes, ActorMaterializer, Supervision}
+import akka.stream.{ActorAttributes, Supervision}
 import com.github.pwliwanow.foundationdb4s.core._
 
 import scala.collection.immutable.Seq
@@ -19,8 +19,6 @@ class SubspaceSourceSpec extends FoundationDbStreamsSpec {
       addedAt = Instant.parse("2018-08-03T10:15:30.00Z"),
       friendId = 10L,
       friendName = "John")
-
-  private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
 
   it should "stream data from whole underlying RefreshingSubspaceStream" in {
     val xs = (1 to 100).iterator.map(entityFromInt).toList

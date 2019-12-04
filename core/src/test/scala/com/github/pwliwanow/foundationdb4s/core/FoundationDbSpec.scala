@@ -3,19 +3,23 @@ package com.github.pwliwanow.foundationdb4s.core
 import java.time.Instant
 
 import cats.laws.IsEq
-import com.apple.foundationdb.{Database, FDB, KeySelector}
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb.tuple.Tuple
+import com.apple.foundationdb.{Database, FDB, KeySelector}
 import org.scalactic.Equality
-import org.scalatest.{Assertion, BeforeAndAfterEach, FlatSpecLike}
+import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
-trait FoundationDbSpec extends FlatSpecLike with TableDrivenPropertyChecks with BeforeAndAfterEach {
+trait FoundationDbSpec
+    extends AnyFlatSpecLike
+    with TableDrivenPropertyChecks
+    with BeforeAndAfterEach {
   spec =>
 
   implicit def ec: ExecutionContextExecutor = DatabaseHolder.ec
@@ -121,6 +125,6 @@ final case class TestError(msg: String) extends RuntimeException
 
 object DatabaseHolder {
   implicit def ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val database: Database = FDB.selectAPIVersion(610).open(null, ec)
+  val database: Database = FDB.selectAPIVersion(620).open(null, ec)
   sys.addShutdownHook(database.close())
 }

@@ -10,7 +10,7 @@ It aims to be type-safe and idiomatic for Scala.
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val database: Database = FDB.selectAPIVersion(610).open(null, ec)
+val database: Database = FDB.selectAPIVersion(620).open(null, ec)
 
 final case class Book(isbn: String, title: String, publishedOn: LocalDate)
 
@@ -102,7 +102,7 @@ import com.github.pwliwanow.foundationdb4s.schema._
 import shapeless.{::, HNil}
 
 implicit val ec = scala.concurrent.ExecutionContext.global
-val database: Database = FDB.selectAPIVersion(610).open(null, ec)
+val database: Database = FDB.selectAPIVersion(620).open(null, ec)
 
 object Language extends Enumeration {
   type Language = Value
@@ -191,7 +191,7 @@ Note that if the given `DBIO` did not modify the database, returned `Versionstam
 
 ```scala
 implicit val ec = scala.concurrent.ExecutionContext.global
-val database: Database = FDB.selectAPIVersion(610).open(null, ec)
+val database: Database = FDB.selectAPIVersion(620).open(null, ec)
 
 case class EventKey(eventType: String, versionstamp: Versionstamp)
 case class Event(key: EventKey, content: Array[Byte])

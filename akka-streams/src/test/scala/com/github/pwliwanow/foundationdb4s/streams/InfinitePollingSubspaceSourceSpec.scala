@@ -1,7 +1,6 @@
 package com.github.pwliwanow.foundationdb4s.streams
 import java.time.Instant
 
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import cats.instances.all._
 import cats.syntax.all._
@@ -16,8 +15,6 @@ class InfinitePollingSubspaceSourceSpec extends FoundationDbStreamsSpec {
       addedAt = Instant.parse("2018-08-03T10:15:30.00Z"),
       friendId = 10L,
       friendName = "John")
-
-  private implicit lazy val mat: ActorMaterializer = ActorMaterializer()
 
   it should "continuously stream data from the given subspace" in {
     val numberOfElements = 100
