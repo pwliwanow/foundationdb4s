@@ -24,7 +24,7 @@ object Dependencies {
     val java8CompatVersion = "0.9.1"
     val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
-    val mockitoVersion = "3.3.3"
+    val mockitoVersion = "3.4.3"
     val mockito = "org.mockito" % "mockito-core" % mockitoVersion
 
     val scalaTestVersion = "3.2.0"
