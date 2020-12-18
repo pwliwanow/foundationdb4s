@@ -29,14 +29,16 @@ trait TupleEncoder[A] { self =>
     * If possible it should be used instead of implementing custom `TupleEncoder[B]`
     * from scratch, as this method is unlikely to change.
     */
-  def contramap[B](f: B => A): TupleEncoder[B] = new TupleEncoder[B] {
-    override def encode(value: B): Tuple = self.encode(f(value))
-    override def encode(value: B, acc: Tuple, preceedingNulls: Int): (Tuple, Int) =
-      self.encode(f(value), acc, preceedingNulls)
-  }
+  def contramap[B](f: B => A): TupleEncoder[B] =
+    new TupleEncoder[B] {
+      override def encode(value: B): Tuple = self.encode(f(value))
+      override def encode(value: B, acc: Tuple, preceedingNulls: Int): (Tuple, Int) =
+        self.encode(f(value), acc, preceedingNulls)
+    }
 }
 
 object TupleEncoder extends BasicEncoders {
+
   /** Derives [[TupleEncoder]] for [[A]] type parameter.
     *
     * Derivation will succeed only if there exist implicit
@@ -72,8 +74,8 @@ trait BasicEncoders {
       (addNulls(acc, preceedingNulls).add(value), 0)
   }
 
-  implicit def anyValEncoder[W, U](
-      implicit unwrapped: Unwrapped.Aux[W, U],
+  implicit def anyValEncoder[W, U](implicit
+      unwrapped: Unwrapped.Aux[W, U],
       encoder: TupleEncoder[U]): TupleEncoder[W] = {
     encoder.contramap[W](unwrapped.unwrap)
   }

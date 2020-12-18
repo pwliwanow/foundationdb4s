@@ -39,8 +39,8 @@ trait Schema { schema =>
     * [[ValueSchema]] representation of a value that is to be kept within this subspace
     * [[Entity]] the type of the entity that single row (key + value) represents
     */
-  class Namespace(override val subspace: Subspace)(
-      implicit keyEncoder: ReprEncoder[KeySchema],
+  class Namespace(override val subspace: Subspace)(implicit
+      keyEncoder: ReprEncoder[KeySchema],
       valueEncoder: ReprEncoder[ValueSchema],
       keyDecoder: ReprDecoder[KeySchema],
       valueDecoder: ReprDecoder[ValueSchema])
@@ -69,8 +69,8 @@ trait Schema { schema =>
         key: P)(implicit gen: Generic.Aux[P, L], keyEv: L =:= KeySchema): DBIO[Unit] =
       super.clear(gen.to(key))
 
-    def clearRange[P <: Product, L <: HList](range: P)(
-        implicit gen: Generic.Aux[P, L],
+    def clearRange[P <: Product, L <: HList](range: P)(implicit
+        gen: Generic.Aux[P, L],
         enc: ReprEncoder[L],
         prefix: Prefix[KeySchema, L]): DBIO[Unit] = {
       this.clearRange(gen.to(range))
@@ -81,47 +81,47 @@ trait Schema { schema =>
       super.clear(this.range(range))
     }
 
-    def getRange[P <: Product, L <: HList](range: P)(
-        implicit gen: Generic.Aux[P, L],
+    def getRange[P <: Product, L <: HList](range: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       this.getRange(gen.to(range))
     }
 
-    def getRange[L <: HList](range: L)(
-        implicit prefixEv: Prefix[KeySchema, L],
+    def getRange[L <: HList](range: L)(implicit
+        prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       super.getRange(this.range(range))
     }
 
-    def getRange[P <: Product, L <: HList](range: P, limit: Int)(
-        implicit gen: Generic.Aux[P, L],
+    def getRange[P <: Product, L <: HList](range: P, limit: Int)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       this.getRange(gen.to(range), limit)
     }
 
-    def getRange[L <: HList](range: L, limit: Int)(
-        implicit prefixEv: Prefix[KeySchema, L],
+    def getRange[L <: HList](range: L, limit: Int)(implicit
+        prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       super.getRange(this.range(range), limit)
     }
 
-    def getRange[P <: Product, L <: HList](range: P, limit: Int, reverse: Boolean)(
-        implicit gen: Generic.Aux[P, L],
+    def getRange[P <: Product, L <: HList](range: P, limit: Int, reverse: Boolean)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       this.getRange(gen.to(range), limit, reverse)
     }
 
-    def getRange[L <: HList](range: L, limit: Int, reverse: Boolean)(
-        implicit prefixEv: Prefix[KeySchema, L],
+    def getRange[L <: HList](range: L, limit: Int, reverse: Boolean)(implicit
+        prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): ReadDBIO[Seq[Entity]] = {
       super.getRange(this.range(range), limit, reverse)
     }
 
-    def range[P <: Product, L <: HList](range: P)(
-        implicit gen: Generic.Aux[P, L],
+    def range[P <: Product, L <: HList](range: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): Range = {
       this.range(gen.to(range))
@@ -132,8 +132,8 @@ trait Schema { schema =>
       rangeFromHList(range)
     }
 
-    final def firstGreaterOrEqual[P <: Product, L <: HList](key: P)(
-        implicit gen: Generic.Aux[P, L],
+    final def firstGreaterOrEqual[P <: Product, L <: HList](key: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): KeySelector =
       this.firstGreaterOrEqual(gen.to(key))
@@ -142,8 +142,8 @@ trait Schema { schema =>
         key: L)(implicit prefixEv: Prefix[KeySchema, L], enc: ReprEncoder[L]): KeySelector =
       super.firstGreaterOrEqual(enc.encode(key))
 
-    final def firstGreaterThan[P <: Product, L <: HList](key: P)(
-        implicit gen: Generic.Aux[P, L],
+    final def firstGreaterThan[P <: Product, L <: HList](key: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): KeySelector =
       this.firstGreaterThan(gen.to(key))
@@ -152,8 +152,8 @@ trait Schema { schema =>
         key: L)(implicit prefixEv: Prefix[KeySchema, L], enc: ReprEncoder[L]): KeySelector =
       super.firstGreaterThan(enc.encode(key))
 
-    final def lastLessOrEqual[P <: Product, L <: HList](key: P)(
-        implicit gen: Generic.Aux[P, L],
+    final def lastLessOrEqual[P <: Product, L <: HList](key: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): KeySelector =
       this.lastLessOrEqual(gen.to(key))
@@ -162,8 +162,8 @@ trait Schema { schema =>
         key: L)(implicit prefixEv: Prefix[KeySchema, L], enc: ReprEncoder[L]): KeySelector =
       super.lastLessOrEqual(enc.encode(key))
 
-    final def lastLessThan[P <: Product, L <: HList](key: P)(
-        implicit gen: Generic.Aux[P, L],
+    final def lastLessThan[P <: Product, L <: HList](key: P)(implicit
+        gen: Generic.Aux[P, L],
         prefixEv: Prefix[KeySchema, L],
         enc: ReprEncoder[L]): KeySelector =
       this.lastLessThan(gen.to(key))
