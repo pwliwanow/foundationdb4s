@@ -133,7 +133,6 @@ class ReadDBIOSpec extends FoundationDbSpec {
   }
 
   it should "correctly handle covariance" in {
-    import cats.implicits._
     val cat = Cat("Tom")
     val dog = Dog("Rico")
     val expected = List(cat, dog)
@@ -147,7 +146,7 @@ class ReadDBIOSpec extends FoundationDbSpec {
   }
 
   it should "be able to run actions in parallel" in {
-    import cats.implicits._
+    import cats.syntax.all._
     val bool1 = new AtomicBoolean(false)
     val bool2 = new AtomicBoolean(false)
     def createDbio(boolToWatch: AtomicBoolean, boolToChange: AtomicBoolean) =
