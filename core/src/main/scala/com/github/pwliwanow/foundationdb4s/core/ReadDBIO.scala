@@ -24,8 +24,8 @@ final case class ReadDBIO[+A] private (private val underlying: TransactionalM[Re
     DBIO.fromTransactionToPromise((tx: Transaction) => underlying.run(tx))
   }
 
-  def transact(readContext: ReadTransactionContext)(
-      implicit ec: ExecutionContextExecutor): Future[A] = {
+  def transact(readContext: ReadTransactionContext)(implicit
+      ec: ExecutionContextExecutor): Future[A] = {
     transactJava(readContext).toScala
       .recoverWith {
         case e: CompletionException if e.getCause != null =>
