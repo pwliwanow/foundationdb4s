@@ -27,7 +27,7 @@ object Dependencies {
     val mockitoVersion = "3.4.2"
     val mockito = "org.mockito" % "mockito-core" % mockitoVersion
 
-    val scalaTestVersion = "3.2.0"
+    val scalaTestVersion = "3.2.4"
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
 
     val scalaTestPlusMockitoVersion = "1.0.0-M2"
