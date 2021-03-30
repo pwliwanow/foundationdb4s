@@ -67,8 +67,8 @@ final case class DBIO[+A] private (private val underlying: TransactionalM[Transa
     *         For DBIO that modified the database, [[Versionstamp]] will be equal to the versionstamp used
     *         by any versionstamp operations in this DBIO.
     */
-  def transactVersionstamped(database: Database)(
-      implicit ec: ExecutionContextExecutor): Future[(A, Option[Versionstamp])] = {
+  def transactVersionstamped(database: Database)(implicit
+      ec: ExecutionContextExecutor): Future[(A, Option[Versionstamp])] = {
     transactVersionstamped(database, userVersion = 0)
   }
 
@@ -88,8 +88,8 @@ final case class DBIO[+A] private (private val underlying: TransactionalM[Transa
     *         For DBIO that modified the database, [[Versionstamp]] will be equal to the versionstamp used
     *         by any versionstamp operations in this DBIO.
     */
-  def transactVersionstamped(database: Database, userVersion: Int)(
-      implicit ec: ExecutionContextExecutor): Future[(A, Option[Versionstamp])] = {
+  def transactVersionstamped(database: Database, userVersion: Int)(implicit
+      ec: ExecutionContextExecutor): Future[(A, Option[Versionstamp])] = {
     transactVersionstampedJava(database, userVersion).toScala.recoverWith {
       case e: CompletionException if e.getCause != null =>
         Future.failed(e.getCause)

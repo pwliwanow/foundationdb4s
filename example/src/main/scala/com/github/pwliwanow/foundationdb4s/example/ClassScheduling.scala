@@ -1,8 +1,6 @@
 package com.github.pwliwanow.foundationdb4s.example
 
 import java.time.LocalTime
-
-import cats.instances.list._
 import cats.syntax.traverse._
 import com.apple.foundationdb.{Database, FDB}
 import com.apple.foundationdb.subspace.Subspace
@@ -146,9 +144,10 @@ object ClassScheduling {
       } yield ()
     for {
       maybeAttendance <- attendanceNamespace.getRow((studentId, c)).toDBIO
-      _ <- maybeAttendance
-        .map(_ => DBIO.unit) // already signed up
-        .getOrElse(enroll)
+      _ <-
+        maybeAttendance
+          .map(_ => DBIO.unit) // already signed up
+          .getOrElse(enroll)
     } yield ()
   }
 
@@ -237,9 +236,10 @@ object ClassScheduling {
       if (classCount < 5) moods += Add
       val mood = moods(rand.nextInt(moods.size))
       val f: Future[Unit] = for {
-        _ <- if (allClasses.isEmpty)
-          availableClasses.transact(database).map(xs => allClasses = xs)
-        else Future.successful(())
+        _ <-
+          if (allClasses.isEmpty)
+            availableClasses.transact(database).map(xs => allClasses = xs)
+          else Future.successful(())
         _ <- mood match {
           case Add =>
             val c = allClasses(rand.nextInt(allClasses.size))

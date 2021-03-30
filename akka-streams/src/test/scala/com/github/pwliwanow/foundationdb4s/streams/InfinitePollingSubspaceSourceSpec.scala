@@ -2,7 +2,6 @@ package com.github.pwliwanow.foundationdb4s.streams
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import cats.instances.all._
 import cats.syntax.all._
 import com.github.pwliwanow.foundationdb4s.core.FriendEntity
 

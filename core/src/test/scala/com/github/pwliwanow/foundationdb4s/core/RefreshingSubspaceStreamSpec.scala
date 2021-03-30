@@ -242,7 +242,6 @@ class RefreshingSubspaceStreamSpec
 
   private def addElements(xs: List[FriendEntity]): Unit = {
     import DBIO._
-    import cats.instances.list._
     import cats.syntax.traverse._
     val dbio = xs.map(typedSubspace.set).sequence[DBIO, Unit]
     dbio.transact(database).await
