@@ -22,13 +22,15 @@ trait TupleDecoder[A] { self =>
   /** Creates new instance of [[TupleDecoder]] by applying function `f`
     * to a value that was obtained by deserializing given tuple as an [[A]].
     */
-  def map[B](f: A => B): TupleDecoder[B] = new TupleDecoder[B] {
-    override def decode(tuple: Tuple): B = f(self.decode(tuple))
-    override def decode(tuple: Tuple, index: Int): B = f(self.decode(tuple, index))
-  }
+  def map[B](f: A => B): TupleDecoder[B] =
+    new TupleDecoder[B] {
+      override def decode(tuple: Tuple): B = f(self.decode(tuple))
+      override def decode(tuple: Tuple, index: Int): B = f(self.decode(tuple, index))
+    }
 }
 
 object TupleDecoder extends BasicDecodersProtocol {
+
   /** Derives [[TupleDecoder]] for [[A]] type parameter.
     *
     * Derivation will succeed only if there exist implicit
@@ -58,8 +60,8 @@ trait BasicDecodersProtocol {
     override def decode(tuple: Tuple, index: Int): Boolean = tuple.getBoolean(index)
   }
 
-  implicit def anyValDecoder[W, U](
-      implicit unwrapped: Unwrapped.Aux[W, U],
+  implicit def anyValDecoder[W, U](implicit
+      unwrapped: Unwrapped.Aux[W, U],
       ev: TupleDecoder[U]): TupleDecoder[W] = {
     ev.map(unwrapped.wrap)
   }

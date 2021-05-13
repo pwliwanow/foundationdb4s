@@ -75,10 +75,12 @@ private final class InfinitePollingSubspaceSource[Entity](
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new SubspaceGraphStageLogic[Entity](shape, out, inheritedAttributes, createStream) {
       override protected def endReached(): Unit = {
-        materializer.scheduleOnce(pollingInterval, () => {
-          resumeStream()
-          onPull()
-        })
+        materializer.scheduleOnce(
+          pollingInterval,
+          () => {
+            resumeStream()
+            onPull()
+          })
         ()
       }
     }
