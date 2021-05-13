@@ -109,12 +109,13 @@ trait FoundationDbSpec
     assertTry(left, right)
   }
 
-  private def assertTry[A](left: Try[A], right: Try[A]): Assertion = (left, right) match {
-    case (Failure(l), Failure(r)) =>
-      assert(l.getMessage === r.getMessage)
-    case _ =>
-      assert(left === right)
-  }
+  private def assertTry[A](left: Try[A], right: Try[A]): Assertion =
+    (left, right) match {
+      case (Failure(l), Failure(r)) =>
+        assert(l.getMessage === r.getMessage)
+      case _ =>
+        assert(left === right)
+    }
 }
 
 final case class FriendEntity(ofUserId: Long, addedAt: Instant, friendId: Long, friendName: String)
