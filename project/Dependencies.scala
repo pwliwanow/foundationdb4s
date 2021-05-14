@@ -21,7 +21,7 @@ object Dependencies {
     val foundationDbVersion = "6.2.22"
     val foundationDb = "org.foundationdb" % "fdb-java" % foundationDbVersion
 
-    val java8CompatVersion = "0.9.1"
+    val java8CompatVersion = "1.0.0"
     val java8Compat = "org.scala-lang.modules" %% "scala-java8-compat" % java8CompatVersion
 
     val mockitoVersion = "3.4.2"
