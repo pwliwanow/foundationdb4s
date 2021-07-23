@@ -10,7 +10,7 @@ install:
   - sudo apt-get -qq -y install python
   - wget https://www.foundationdb.org/downloads/6.2.10/ubuntu/installers/foundationdb-clients_6.2.22-1_amd64.deb
   - wget https://www.foundationdb.org/downloads/6.2.10/ubuntu/installers/foundationdb-server_6.2.22-1_amd64.deb
-  - sudo dpkg -i foundationdb-clients_6.2.10-1_amd64.deb foundationdb-server_6.2.22-1_amd64.deb
+  - sudo dpkg -i foundationdb-clients_6.2.10-1_amd64.deb foundationdb-server_6.3.17-1_amd64.deb
 script:
   - sbt test:scalafmt scalafmtSbt coverage +test coverageReport
 after_success:
