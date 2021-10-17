@@ -2,6 +2,7 @@ package com.github.pwliwanow.foundationdb4s.core
 
 import com.apple.foundationdb.subspace.Subspace
 import com.apple.foundationdb._
+import com.github.pwliwanow.foundationdb4s.core.internal.future.Fdb4sFastFuture._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
@@ -121,6 +122,7 @@ private final class SubspaceStream(
   override def onHasNext(): Future[Boolean] = {
     asyncIterator
       .onHasNext()
+      .toFastFuture
       .recoverWith { case e: FDBException =>
         if (numberOfRestartsWithoutProgress > maxAllowedNumberOfRestartsWithoutProgress) {
           Future.failed[Boolean](
