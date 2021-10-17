@@ -2,16 +2,15 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
-lazy val scala2_12 = "2.12.10"
-lazy val scala2_13 = "2.13.1"
-lazy val supportedScalaVersions = List(scala2_12, scala2_13)
+lazy val scala2_13 = "2.13.6"
+lazy val supportedScalaVersions = List(scala2_13)
 
-ThisBuild / scalaVersion := scala2_12
+ThisBuild / scalaVersion := scala2_13
 
 lazy val fdb4s = project
   .in(file("."))
   .settings(commonSettings: _*)
-  .settings(skip in publish := true, crossScalaVersions := Nil)
+  .settings(publish / skip := true, crossScalaVersions := Nil)
   .aggregate(akkaStreams, core, example, schema)
 
 lazy val core = project
@@ -49,43 +48,38 @@ lazy val example = project
   .settings(
     commonSettings,
     name := "example",
-    skip in publish := true,
+    publish / skip := true,
     crossScalaVersions := supportedScalaVersions,
     coverageEnabled := false
   )
 
 lazy val commonSettings = ossPublishSettings ++ Seq(
   organization := "com.github.pwliwanow.foundationdb4s",
-  scalaVersion := scala2_12,
+  scalaVersion := scala2_13,
   scalafmtOnCompile := true,
-  parallelExecution in ThisBuild := false,
+  parallelExecution := false,
   fork := true,
   scalacOptions ++= {
-    val commonScalacOptions =
-      List(
-        "-unchecked",
-        "-deprecation",
-        "-encoding",
-        "UTF-8",
-        "-explaintypes",
-        "-feature",
-        "-language:higherKinds",
-        "-language:implicitConversions",
-        "-Xlint:inaccessible",
-        "-Xlint:infer-any",
-        "-Ywarn-dead-code",
-        "-Ywarn-unused:imports",
-        "-Ywarn-unused:locals",
-        "-Ywarn-unused:patvars",
-        "-Ywarn-unused:privates"
-      )
-    val extraOptions =
-      // fatal warnings temporarily only in 2.12
-      if (scalaVersion.value == scala2_12) List("-Xfatal-warnings", "-Ypartial-unification")
-      else List.empty
-    commonScalacOptions ++ extraOptions
+    List(
+      "-unchecked",
+      "-deprecation",
+      "-encoding",
+      "UTF-8",
+      "-explaintypes",
+      "-feature",
+      "-language:higherKinds",
+      "-language:implicitConversions",
+      "-Xlint:inaccessible",
+      "-Xlint:infer-any",
+      "-Ywarn-dead-code",
+      "-Ywarn-unused:imports",
+      "-Ywarn-unused:locals",
+      "-Ywarn-unused:patvars",
+      "-Ywarn-unused:privates",
+      "-Xfatal-warnings"
+    )
   },
-  scalacOptions in (Compile, doc) ++= Seq(
+  Compile / doc / scalacOptions ++= Seq(
     "-no-link-warnings"
   )
 )
@@ -95,7 +89,7 @@ lazy val ossPublishSettings = Seq(
     if (isSnapshot.value) Some(Opts.resolver.sonatypeSnapshots)
     else sonatypePublishToBundle.value
   },
-  publishArtifact in Test := false,
+  Test / publishArtifact := false,
   publishMavenStyle := true,
   sonatypeProfileName := "com.github.pwliwanow",
   pomIncludeRepository := { _ =>

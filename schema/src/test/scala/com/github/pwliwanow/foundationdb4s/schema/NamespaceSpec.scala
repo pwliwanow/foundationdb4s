@@ -110,36 +110,36 @@ class NamespaceSpec extends FoundationDbSpec { spec =>
 
   it should "correctly return elements within provided range for getRange operation when range " +
     "ends with None, for Some as last elem" in {
-    val entities = (11 to 20)
-      .map(i => key.copy(city = None, yearOfBirth = Some(1970 + i)))
-      .map(key => entity.copy(key = key))
-    val otherEntities = for {
-      otherCity <- List("NY")
-      entity <- entities
-    } yield entity.copy(key = entity.key.copy(city = Some(otherCity)))
-    val allEntities = entities ++ otherEntities
-    addElements(allEntities.map(entityToTuples), subspace)
-    val dbio = schemaSubspace.getRange((lastName, Option.empty[String]))
-    val res = dbio.transact(database).await
-    val obtainedKeys = res.map(_.key).toSet
-    val expectedKeys = entities.map(_.key).toSet
-    assert(obtainedKeys === expectedKeys)
-  }
+      val entities = (11 to 20)
+        .map(i => key.copy(city = None, yearOfBirth = Some(1970 + i)))
+        .map(key => entity.copy(key = key))
+      val otherEntities = for {
+        otherCity <- List("NY")
+        entity <- entities
+      } yield entity.copy(key = entity.key.copy(city = Some(otherCity)))
+      val allEntities = entities ++ otherEntities
+      addElements(allEntities.map(entityToTuples), subspace)
+      val dbio = schemaSubspace.getRange((lastName, Option.empty[String]))
+      val res = dbio.transact(database).await
+      val obtainedKeys = res.map(_.key).toSet
+      val expectedKeys = entities.map(_.key).toSet
+      assert(obtainedKeys === expectedKeys)
+    }
 
   it should "correctly return elements within provided range for getRange operation when range " +
     "ends with None, for None as last elem" in {
-    val otherEntity1 = User(UserKey("", None, None), instant)
-    val targetEntity = User(UserKey(lastName, None, None), instant)
-    val otherEntity2 = User(UserKey(lastName, Option(city), None), instant)
-    val otherEntity3 = User(UserKey("Young", None, None), instant)
-    val allEntities = List(otherEntity1, targetEntity, otherEntity2, otherEntity3)
-    addElements(allEntities.map(entityToTuples), subspace)
-    val dbio = schemaSubspace.getRange((lastName, Option.empty[String]))
-    val res = dbio.transact(database).await
-    val obtainedKeys = res.map(_.key).toSet
-    val expectedKeys = Set(targetEntity.key)
-    assert(obtainedKeys === expectedKeys)
-  }
+      val otherEntity1 = User(UserKey("", None, None), instant)
+      val targetEntity = User(UserKey(lastName, None, None), instant)
+      val otherEntity2 = User(UserKey(lastName, Option(city), None), instant)
+      val otherEntity3 = User(UserKey("Young", None, None), instant)
+      val allEntities = List(otherEntity1, targetEntity, otherEntity2, otherEntity3)
+      addElements(allEntities.map(entityToTuples), subspace)
+      val dbio = schemaSubspace.getRange((lastName, Option.empty[String]))
+      val res = dbio.transact(database).await
+      val obtainedKeys = res.map(_.key).toSet
+      val expectedKeys = Set(targetEntity.key)
+      assert(obtainedKeys === expectedKeys)
+    }
 
   it should "return limited number of elements within provided range for getRange operation" in {
     val entities = (101 to 200)
@@ -160,21 +160,21 @@ class NamespaceSpec extends FoundationDbSpec { spec =>
 
   it should "correctly return elements within provided range, for given limit and reverse flag " +
     "for getRange operation when range ends with None, for Some as last elem" in {
-    val entities = (11 to 20)
-      .map(i => key.copy(city = None, yearOfBirth = Some(1970 + i)))
-      .map(key => entity.copy(key = key))
-    val otherEntities = for {
-      otherCity <- List("NY")
-      entity <- entities
-    } yield entity.copy(key = entity.key.copy(city = Some(otherCity)))
-    val allEntities = entities ++ otherEntities
-    addElements(allEntities.map(entityToTuples), subspace)
-    val dbio = schemaSubspace.getRange((lastName, Option.empty[String]), 5, reverse = true)
-    val res = dbio.transact(database).await
-    val obtainedKeys = res.map(_.key).toSet
-    val expectedKeys = entities.takeRight(5).map(_.key).toSet
-    assert(obtainedKeys === expectedKeys)
-  }
+      val entities = (11 to 20)
+        .map(i => key.copy(city = None, yearOfBirth = Some(1970 + i)))
+        .map(key => entity.copy(key = key))
+      val otherEntities = for {
+        otherCity <- List("NY")
+        entity <- entities
+      } yield entity.copy(key = entity.key.copy(city = Some(otherCity)))
+      val allEntities = entities ++ otherEntities
+      addElements(allEntities.map(entityToTuples), subspace)
+      val dbio = schemaSubspace.getRange((lastName, Option.empty[String]), 5, reverse = true)
+      val res = dbio.transact(database).await
+      val obtainedKeys = res.map(_.key).toSet
+      val expectedKeys = entities.takeRight(5).map(_.key).toSet
+      assert(obtainedKeys === expectedKeys)
+    }
 
   it should "correctly create firstGreaterOrEqual KeySelector" in {
     val from = schemaSubspace.firstGreaterOrEqual((lastName, Option.empty[String]))
@@ -256,9 +256,8 @@ class NamespaceSpec extends FoundationDbSpec { spec =>
 
   private def addElements(kvs: Seq[(Tuple, Tuple)], to: Subspace): Unit = {
     database.run { tx =>
-      kvs.foreach {
-        case (k, v) =>
-          tx.set(to.pack(k), v.pack)
+      kvs.foreach { case (k, v) =>
+        tx.set(to.pack(k), v.pack)
       }
     }
   }

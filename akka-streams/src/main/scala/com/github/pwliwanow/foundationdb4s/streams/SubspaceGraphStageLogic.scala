@@ -4,9 +4,10 @@ import akka.stream.Supervision.Decider
 import akka.stream.{Attributes, Outlet, Shape, Supervision}
 import akka.stream.stage.{AsyncCallback, GraphStageLogic, OutHandler}
 import com.github.pwliwanow.foundationdb4s.core.RefreshingSubspaceStream
+import com.github.pwliwanow.foundationdb4s.core.internal.future.Fdb4sFastFuture.toFutureOps
 
 import scala.concurrent.ExecutionContextExecutor
-import scala.util.Try
+import scala.util.{Failure, Success}
 
 private[streams] abstract class SubspaceGraphStageLogic[Entity](
     shape: Shape,
@@ -29,9 +30,11 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
 
   override def postStop(): Unit = underlyingStream.close()
 
-  setHandler(out, new OutHandler {
-    override def onPull(): Unit = stage.onPull()
-  })
+  setHandler(
+    out,
+    new OutHandler {
+      override def onPull(): Unit = stage.onPull()
+    })
 
   protected def resumeStream(): Unit = {
     underlyingStream.resume()
@@ -42,27 +45,31 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
     val failStageCallback = createFailStageCallback()
     underlyingStream
       .onHasNext()
-      .map(hasNext => pushCallback.invoke(hasNext))(materializer.executionContext)
-      .recover { case t => failStageCallback.invoke(t) }(materializer.executionContext)
+      .toFastFuture
+      .transform {
+        case Success(hasNext) => Success(pushCallback.invoke(hasNext))
+        case Failure(e)       => Success(failStageCallback.invoke(e))
+      }
     ()
   }
 
-  private def createPushCallback(): AsyncCallback[Boolean] = getAsyncCallback[Boolean] { hasNext =>
-    if (hasNext) pushNext()
-    else endReached()
-  }
+  private def createPushCallback(): AsyncCallback[Boolean] =
+    getAsyncCallback[Boolean] { hasNext =>
+      if (hasNext) pushNext()
+      else endReached()
+    }
 
   private def pushNext(): Unit = {
-    Try(underlyingStream.next())
-      .map(push(out, _))
-      .recover {
-        case t =>
-          decider(t) match {
-            case Supervision.Stop => failStage(t)
-            case _                => onPull()
-          }
-      }
-      .get
+    try {
+      val next = underlyingStream.next()
+      push(out, next)
+    } catch {
+      case t: Throwable =>
+        decider(t) match {
+          case Supervision.Stop => failStage(t)
+          case _                => onPull()
+        }
+    }
   }
 
   private def createFailStageCallback(): AsyncCallback[Throwable] =

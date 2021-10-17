@@ -318,9 +318,8 @@ class TypedSubspaceSpec extends FoundationDbSpec { spec =>
 
   private def addElements(kvs: Seq[(Tuple, Tuple)], to: Subspace): Unit = {
     database.run { tx =>
-      kvs.foreach {
-        case (k, v) =>
-          tx.set(to.pack(k), v.pack)
+      kvs.foreach { case (k, v) =>
+        tx.set(to.pack(k), v.pack)
       }
     }
   }
