@@ -29,9 +29,11 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
 
   override def postStop(): Unit = underlyingStream.close()
 
-  setHandler(out, new OutHandler {
-    override def onPull(): Unit = stage.onPull()
-  })
+  setHandler(
+    out,
+    new OutHandler {
+      override def onPull(): Unit = stage.onPull()
+    })
 
   protected def resumeStream(): Unit = {
     underlyingStream.resume()
@@ -47,20 +49,20 @@ private[streams] abstract class SubspaceGraphStageLogic[Entity](
     ()
   }
 
-  private def createPushCallback(): AsyncCallback[Boolean] = getAsyncCallback[Boolean] { hasNext =>
-    if (hasNext) pushNext()
-    else endReached()
-  }
+  private def createPushCallback(): AsyncCallback[Boolean] =
+    getAsyncCallback[Boolean] { hasNext =>
+      if (hasNext) pushNext()
+      else endReached()
+    }
 
   private def pushNext(): Unit = {
     Try(underlyingStream.next())
       .map(push(out, _))
-      .recover {
-        case t =>
-          decider(t) match {
-            case Supervision.Stop => failStage(t)
-            case _                => onPull()
-          }
+      .recover { case t =>
+        decider(t) match {
+          case Supervision.Stop => failStage(t)
+          case _                => onPull()
+        }
       }
       .get
   }

@@ -8,9 +8,9 @@ import com.apple.foundationdb.tuple.Tuple
 import com.apple.foundationdb.{KeySelector, KeyValue, Range}
 import com.github.pwliwanow.foundationdb4s.core.internal.CompletableFutureHolder._
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.Promise
+import scala.jdk.CollectionConverters._
 import scala.util.{Success, Try}
 
 /** TypedSubspace is a wrapper around FoundationDB API exposing typed (where possible)
@@ -22,7 +22,7 @@ import scala.util.{Success, Try}
   * @tparam Key the type of the entity that single key row represents
   */
 trait TypedSubspace[Entity, Key] {
-  val subspace: Subspace
+  def subspace: Subspace
 
   def toKey(entity: Entity): Key
   def toRawValue(entity: Entity): Array[Byte]

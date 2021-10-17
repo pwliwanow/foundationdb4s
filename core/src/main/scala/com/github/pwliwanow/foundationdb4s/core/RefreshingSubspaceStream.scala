@@ -23,8 +23,8 @@ trait RefreshingSubspaceStream[A] {
 object RefreshingSubspaceStream {
   def fromTypedSubspace[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
-      database: Database)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
+      database: Database)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
     fromTypedSubspace(subspace, database, begin)
   }
@@ -32,8 +32,8 @@ object RefreshingSubspaceStream {
   def fromTypedSubspace[Entity, KeyRepr](
       subspace: TypedSubspace[Entity, KeyRepr],
       database: Database,
-      begin: KeySelector)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
+      begin: KeySelector)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
     fromTypedSubspace(subspace, database, begin, end)
   }
@@ -45,8 +45,8 @@ object RefreshingSubspaceStream {
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM,
-      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
+      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[Entity] = {
     val underlying = new SubspaceStream(
       database,
       begin,
@@ -57,14 +57,14 @@ object RefreshingSubspaceStream {
     new TypedSubspaceStream(subspace, underlying)
   }
 
-  def fromSubspace(subspace: Subspace, database: Database)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
+  def fromSubspace(subspace: Subspace, database: Database)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     val begin = KeySelector.firstGreaterOrEqual(subspace.range().begin)
     fromSubspace(subspace, database, begin)
   }
 
-  def fromSubspace(subspace: Subspace, database: Database, begin: KeySelector)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
+  def fromSubspace(subspace: Subspace, database: Database, begin: KeySelector)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     val end = KeySelector.firstGreaterOrEqual(subspace.range().end)
     fromSubspace(database, begin, end)
   }
@@ -75,8 +75,8 @@ object RefreshingSubspaceStream {
       end: KeySelector,
       reverse: Boolean = false,
       streamingMode: StreamingMode = StreamingMode.MEDIUM,
-      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(
-      implicit ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
+      maxAllowedNumberOfRestartsWithoutProgress: Int = 3)(implicit
+      ec: ExecutionContextExecutor): RefreshingSubspaceStream[KeyValue] = {
     new SubspaceStream(
       database,
       begin,
@@ -121,19 +121,18 @@ private final class SubspaceStream(
   override def onHasNext(): Future[Boolean] = {
     asyncIterator
       .onHasNext()
-      .recoverWith {
-        case e: FDBException =>
-          if (numberOfRestartsWithoutProgress > maxAllowedNumberOfRestartsWithoutProgress) {
-            Future.failed[Boolean](
-              new TooManyFailsException(
-                numberOfRestartsWithoutProgress,
-                maxAllowedNumberOfRestartsWithoutProgress,
-                e))
-          } else {
-            this.numberOfRestartsWithoutProgress += 1
-            asyncIterator = resumedIterator()
-            onHasNext()
-          }
+      .recoverWith { case e: FDBException =>
+        if (numberOfRestartsWithoutProgress > maxAllowedNumberOfRestartsWithoutProgress) {
+          Future.failed[Boolean](
+            new TooManyFailsException(
+              numberOfRestartsWithoutProgress,
+              maxAllowedNumberOfRestartsWithoutProgress,
+              e))
+        } else {
+          this.numberOfRestartsWithoutProgress += 1
+          asyncIterator = resumedIterator()
+          onHasNext()
+        }
       }
   }
 
