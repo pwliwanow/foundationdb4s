@@ -97,7 +97,7 @@ import Dao._
 
 object ClassScheduling {
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  val database: Database = FDB.selectAPIVersion(620).open(null, executor)
+  val database: Database = FDB.selectAPIVersion(630).open(null, executor)
 
   val schedulingSubspace = new Subspace(Tuple.from("class-scheduling"))
 
