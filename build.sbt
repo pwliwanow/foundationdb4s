@@ -2,7 +2,7 @@ import Dependencies._
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.ReleasePlugin.autoImport._
 
-lazy val scala2_13 = "2.13.6"
+lazy val scala2_13 = "2.13.7"
 lazy val supportedScalaVersions = List(scala2_13)
 
 ThisBuild / scalaVersion := scala2_13
