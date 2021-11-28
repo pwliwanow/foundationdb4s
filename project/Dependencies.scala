@@ -14,7 +14,7 @@ object Dependencies {
   }
 
   lazy val allCoreDependencies: Seq[ModuleID] = {
-    val catsVersion = "2.6.1"
+    val catsVersion = "2.7.0"
     val cats = "org.typelevel" %% "cats-core" % catsVersion
     val catsLaws = "org.typelevel" %% "cats-laws" % catsVersion
 
