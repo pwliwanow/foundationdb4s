@@ -42,7 +42,7 @@ object Dependencies {
   }
 
   lazy val allSchemaDependencies: Seq[ModuleID] = {
-    val shapelessVersion = "2.3.7"
+    val shapelessVersion = "2.3.8"
     val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
     List(shapeless)
   }
